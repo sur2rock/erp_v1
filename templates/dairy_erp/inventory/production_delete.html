@@ -1,10 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends 'dairy_erp/base.html' %}
+
+{% block title %}Delete Production{% endblock %}
+
+{% block header %}Delete Production{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Confirm Deletion</h5>
+            </div>
+            <div class="card-body">
+                <p>Are you sure you want to delete the following feed production record?</p>
+                
+                <table class="table">
+                    <tr>
+                        <th style="width: 30%">Date:</th>
+                        <td>{{ production.date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Feed Type:</th>
+                        <td>{{ production.fodder_type.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Quantity:</th>
+                        <td>{{ production.quantity_produced }} {{ production.fodder_type.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>Total Production Cost:</th>
+                        <td>{{ production.total_production_cost }}</td>
+                    </tr>
+                    <tr>
+                        <th>Cost Per Unit:</th>
+                        <td>{{ production.cost_per_unit }}</td>
+                    </tr>
+                </table>
+                
+                <div class="alert alert-danger">
+                    <strong>Warning:</strong> This action will remove the production record and adjust the inventory accordingly. This cannot be undone.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'inventory:production_list' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">Confirm Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,10 +1,139 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends 'dairy_erp/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block header %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Feed Consumption Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.fodder_type.id_for_label }}" class="form-label">Feed Type *</label>
+                                {{ form.fodder_type }}
+                                {% if form.fodder_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.fodder_type.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.date.id_for_label }}" class="form-label">Date *</label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.date.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.quantity_consumed.id_for_label }}" class="form-label">Quantity Consumed *</label>
+                                {{ form.quantity_consumed }}
+                                {% if form.quantity_consumed.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.quantity_consumed.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.consumed_by.id_for_label }}" class="form-label">Consumed By *</label>
+                                {{ form.consumed_by }}
+                                {% if form.consumed_by.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.consumed_by.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3" id="group_name_div">
+                                <label for="{{ form.group_name.id_for_label }}" class="form-label">Group Name *</label>
+                                {{ form.group_name }}
+                                {% if form.group_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.group_name.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted">Required when consuming by a specific group</small>
+                            </div>
+                            
+                            <div class="mb-3" id="buffalo_div">
+                                <label for="{{ form.buffalo.id_for_label }}" class="form-label">Buffalo *</label>
+                                {{ form.buffalo }}
+                                {% if form.buffalo.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.buffalo.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted">Required when consuming by an individual buffalo</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">Notes</label>
+                                {{ form.notes }}
+                                {% if form.notes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.notes.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'inventory:consumption_list' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const consumedBySelect = document.getElementById('{{ form.consumed_by.id_for_label }}');
+        const groupNameDiv = document.getElementById('group_name_div');
+        const buffaloDiv = document.getElementById('buffalo_div');
+        
+        // Show/hide relevant fields based on consumed_by selection
+        function toggleFields() {
+            if (consumedBySelect.value === 'GROUP') {
+                groupNameDiv.style.display = 'block';
+                buffaloDiv.style.display = 'none';
+            } else if (consumedBySelect.value === 'INDIVIDUAL') {
+                groupNameDiv.style.display = 'none';
+                buffaloDiv.style.display = 'block';
+            } else {
+                groupNameDiv.style.display = 'none';
+                buffaloDiv.style.display = 'none';
+            }
+        }
+        
+        // Set initial state
+        toggleFields();
+        
+        // Update when consumed_by changes
+        consumedBySelect.addEventListener('change', toggleFields);
+    });
+</script>
+{% endblock %}

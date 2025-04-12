@@ -1,10 +1,159 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends 'dairy_erp/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block header %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">In-House Feed Production Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.fodder_type.id_for_label }}" class="form-label">Feed Type *</label>
+                                {{ form.fodder_type }}
+                                {% if form.fodder_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.fodder_type.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted">Only feed types marked as 'In-House Production' are shown</small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.date.id_for_label }}" class="form-label">Date *</label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.date.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.quantity_produced.id_for_label }}" class="form-label">Quantity Produced *</label>
+                                {{ form.quantity_produced }}
+                                {% if form.quantity_produced.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.quantity_produced.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.seed_cost.id_for_label }}" class="form-label">Seed Cost</label>
+                                {{ form.seed_cost }}
+                                {% if form.seed_cost.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.seed_cost.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.fertilizer_cost.id_for_label }}" class="form-label">Fertilizer Cost</label>
+                                {{ form.fertilizer_cost }}
+                                {% if form.fertilizer_cost.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.fertilizer_cost.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.labor_cost.id_for_label }}" class="form-label">Labor Cost</label>
+                                {{ form.labor_cost }}
+                                {% if form.labor_cost.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.labor_cost.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.machinery_cost.id_for_label }}" class="form-label">Machinery Cost</label>
+                                {{ form.machinery_cost }}
+                                {% if form.machinery_cost.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.machinery_cost.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.other_costs.id_for_label }}" class="form-label">Other Costs</label>
+                                {{ form.other_costs }}
+                                {% if form.other_costs.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.other_costs.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">Notes</label>
+                                {{ form.notes }}
+                                {% if form.notes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.notes.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'inventory:production_list' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Calculate total production cost and cost per unit
+        function updateTotals() {
+            const seedCost = parseFloat(document.getElementById('{{ form.seed_cost.id_for_label }}').value) || 0;
+            const fertilizerCost = parseFloat(document.getElementById('{{ form.fertilizer_cost.id_for_label }}').value) || 0;
+            const laborCost = parseFloat(document.getElementById('{{ form.labor_cost.id_for_label }}').value) || 0;
+            const machineryCost = parseFloat(document.getElementById('{{ form.machinery_cost.id_for_label }}').value) || 0;
+            const otherCosts = parseFloat(document.getElementById('{{ form.other_costs.id_for_label }}').value) || 0;
+            const quantityProduced = parseFloat(document.getElementById('{{ form.quantity_produced.id_for_label }}').value) || 0;
+            
+            const totalCost = seedCost + fertilizerCost + laborCost + machineryCost + otherCosts;
+            const costPerUnit = quantityProduced > 0 ? totalCost / quantityProduced : 0;
+            
+            // Display the calculated values (can be shown in a preview area if needed)
+            console.log(`Total Production Cost: ${totalCost.toFixed(2)}`);
+            console.log(`Cost Per Unit: ${costPerUnit.toFixed(2)}`);
+        }
+        
+        // Add event listeners to all cost inputs and quantity
+        document.getElementById('{{ form.seed_cost.id_for_label }}').addEventListener('input', updateTotals);
+        document.getElementById('{{ form.fertilizer_cost.id_for_label }}').addEventListener('input', updateTotals);
+        document.getElementById('{{ form.labor_cost.id_for_label }}').addEventListener('input', updateTotals);
+        document.getElementById('{{ form.machinery_cost.id_for_label }}').addEventListener('input', updateTotals);
+        document.getElementById('{{ form.other_costs.id_for_label }}').addEventListener('input', updateTotals);
+        document.getElementById('{{ form.quantity_produced.id_for_label }}').addEventListener('input', updateTotals);
+    });
+</script>
+{% endblock %}

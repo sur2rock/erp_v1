@@ -1,10 +1,159 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends 'dairy_erp/base.html' %}
+
+{% block title %}In-House Feed Production{% endblock %}
+
+{% block header %}In-House Feed Production{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Produced</h5>
+                <h2 class="display-4">{{ total_produced }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Cost</h5>
+                <h2 class="display-4">{{ total_cost }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Production by Feed Type</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="productionChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">In-House Feed Production Records</h5>
+        <a href="{% url 'inventory:production_add' %}" class="btn btn-primary btn-sm">Add Production</a>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fodder_type_id" class="form-label">Feed Type</label>
+                        <select name="fodder_type_id" id="fodder_type_id" class="form-select">
+                            <option value="">All</option>
+                            {% for fodder_type in fodder_types %}
+                                <option value="{{ fodder_type.id }}" {% if fodder_type_id == fodder_type.id|stringformat:"i" %}selected{% endif %}>{{ fodder_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Feed Type</th>
+                        <th>Quantity</th>
+                        <th>Total Cost</th>
+                        <th>Cost Per Unit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for production in production_records %}
+                    <tr>
+                        <td>{{ production.date }}</td>
+                        <td>
+                            <a href="{% url 'inventory:fodder_type_detail' fodder_type_id=production.fodder_type.id %}">{{ production.fodder_type.name }}</a>
+                        </td>
+                        <td>{{ production.quantity_produced }} {{ production.fodder_type.unit }}</td>
+                        <td>{{ production.total_production_cost }}</td>
+                        <td>{{ production.cost_per_unit }}</td>
+                        <td>
+                            <a href="{% url 'inventory:production_edit' production_id=production.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'inventory:production_delete' production_id=production.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No production records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Production Chart
+        const productionCtx = document.getElementById('productionChart').getContext('2d');
+        const productionChart = new Chart(productionCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [{
+                    data: {{ chart_values|safe }},
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(153, 102, 255, 0.5)',
+                        'rgba(255, 159, 64, 0.5)',
+                        'rgba(199, 199, 199, 0.5)',
+                        'rgba(83, 102, 255, 0.5)',
+                        'rgba(40, 159, 150, 0.5)',
+                        'rgba(210, 105, 30, 0.5)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

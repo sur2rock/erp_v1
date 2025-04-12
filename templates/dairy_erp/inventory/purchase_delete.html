@@ -1,10 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends 'dairy_erp/base.html' %}
+
+{% block title %}Delete Purchase{% endblock %}
+
+{% block header %}Delete Purchase{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Confirm Deletion</h5>
+            </div>
+            <div class="card-body">
+                <p>Are you sure you want to delete the following feed purchase record?</p>
+                
+                <table class="table">
+                    <tr>
+                        <th style="width: 30%">Date:</th>
+                        <td>{{ purchase.date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Feed Type:</th>
+                        <td>{{ purchase.fodder_type.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Quantity:</th>
+                        <td>{{ purchase.quantity_purchased }} {{ purchase.fodder_type.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>Cost Per Unit:</th>
+                        <td>{{ purchase.cost_per_unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>Total Cost:</th>
+                        <td>{{ purchase.total_cost }}</td>
+                    </tr>
+                    {% if purchase.supplier %}
+                    <tr>
+                        <th>Supplier:</th>
+                        <td>{{ purchase.supplier }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+                
+                <div class="alert alert-danger">
+                    <strong>Warning:</strong> This action will remove the purchase record and adjust the inventory accordingly. This cannot be undone.
+                    {% if purchase.related_expense %}
+                    The related expense record will also be deleted.
+                    {% endif %}
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'inventory:purchase_list' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">Confirm Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
