@@ -1,171 +1,388 @@
-{% extends "layout.html" %}
-
+{% extends "dairy_erp/base.html" %}
 {% load static %}
-{% load crispy_forms_tags %}
+{% load i18n %}
 
-{% block title %}{% if form.instance.id %}Edit{% else %}Add{% endif %} Fodder Type{% endblock %}
+{% block title %}
+  {% if form.instance.pk %}
+    {% trans "Edit Fodder Type" %}: {{ form.instance.name }}
+  {% else %}
+    {% trans "Add New Fodder Type" %}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="row mb-2">
-    <div class="col-sm-6">
-        <h2>{% if form.instance.id %}Edit{% else %}Add{% endif %} Fodder Type</h2>
-    </div>
-    <div class="col-sm-6">
-        <div class="float-right">
-            <a href="{% url 'fodder_type_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to List</a>
-        </div>
-    </div>
-</div>
+<div class="container-fluid">
+  <!-- Page Heading -->
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">
+      {% if form.instance.pk %}
+        {% trans "Edit Fodder Type" %}: {{ form.instance.name }}
+      {% else %}
+        {% trans "Add New Fodder Type" %}
+      {% endif %}
+    </h1>
+    <a href="{% url 'inventory:fodder_type_list' %}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+      <i class="fas fa-arrow-left fa-sm text-white-50"></i> {% trans "Back to List" %}
+    </a>
+  </div>
 
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-edit"></i>
-        Fodder Type Information
+  <!-- Form Card -->
+  <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">
+        {% if form.instance.pk %}
+          {% trans "Edit Fodder Details" %}
+        {% else %}
+          {% trans "Enter Fodder Details" %}
+        {% endif %}
+      </h6>
     </div>
     <div class="card-body">
-        <form method="post" novalidate>
-            {% csrf_token %}
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+              {{ error }}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Form Tabs for Organization -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item">
+            <a class="nav-link active" id="basic-tab" data-toggle="tab" href="#basic" role="tab"
+               aria-controls="basic" aria-selected="true">{% trans "Basic Information" %}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="costing-tab" data-toggle="tab" href="#costing" role="tab"
+               aria-controls="costing" aria-selected="false">{% trans "Costing Information" %}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="inventory-tab" data-toggle="tab" href="#inventory" role="tab"
+               aria-controls="inventory" aria-selected="false">{% trans "Inventory Management" %}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="additional-tab" data-toggle="tab" href="#additional" role="tab"
+               aria-controls="additional" aria-selected="false">{% trans "Additional Information" %}</a>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content mt-3" id="myTabContent">
+          <!-- Basic Information Tab -->
+          <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
             <div class="row">
-                <div class="col-md-6">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <i class="fas fa-info-circle"></i>
-                            Basic Information
-                        </div>
-                        <div class="card-body">
-                            {{ form.name|as_crispy_field }}
-                            {{ form.description|as_crispy_field }}
-                            {{ form.category|as_crispy_field }}
-                            {{ form.supplier|as_crispy_field }}
-                        </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                  {{ form.name }}
+                  {% if form.name.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.name.errors %}
+                        {{ error }}
+                      {% endfor %}
                     </div>
-
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <i class="fas fa-dollar-sign"></i>
-                            Cost & Measurement
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    {{ form.cost_per_unit|as_crispy_field }}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.unit_of_measure|as_crispy_field }}
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    {{ form.reorder_level|as_crispy_field }}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.ideal_stock_level|as_crispy_field }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                  {% endif %}
+                  {% if form.name.help_text %}
+                    <small class="form-text text-muted">{{ form.name.help_text }}</small>
+                  {% endif %}
                 </div>
-
-                <div class="col-md-6">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <i class="fas fa-chart-pie"></i>
-                            Nutritional Information
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    {{ form.dry_matter_percentage|as_crispy_field }}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.protein_percentage|as_crispy_field }}
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    {{ form.fiber_percentage|as_crispy_field }}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.energy_content|as_crispy_field }}
-                                </div>
-                            </div>
-                            {{ form.feeding_recommendations|as_crispy_field }}
-                        </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+                  {{ form.category }}
+                  {% if form.category.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.category.errors %}
+                        {{ error }}
+                      {% endfor %}
                     </div>
-
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <i class="fas fa-warehouse"></i>
-                            Storage Information
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    {{ form.shelf_life_days|as_crispy_field }}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.storage_conditions|as_crispy_field }}
-                                </div>
-                            </div>
-                            {{ form.notes|as_crispy_field }}
-                        </div>
-                    </div>
+                  {% endif %}
+                  {% if form.category.help_text %}
+                    <small class="form-text text-muted">{{ form.category.help_text }}</small>
+                  {% endif %}
                 </div>
+              </div>
             </div>
 
             <div class="row">
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> {% if form.instance.id %}Update{% else %}Save{% endif %} Fodder Type
-                    </button>
-                    {% if form.instance.id %}
-                    <a href="{% url 'fodder_type_detail' form.instance.id %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Cancel
-                    </a>
-                    {% else %}
-                    <a href="{% url 'fodder_type_list' %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Cancel
-                    </a>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.unit.id_for_label }}">{{ form.unit.label }}</label>
+                  {{ form.unit }}
+                  {% if form.unit.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.unit.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if form.unit.help_text %}
+                    <small class="form-text text-muted">{{ form.unit.help_text }}</small>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <div class="custom-control custom-checkbox">
+                    {{ form.is_produced_in_house }}
+                    <label class="custom-control-label" for="{{ form.is_produced_in_house.id_for_label }}">
+                      {{ form.is_produced_in_house.label }}
+                    </label>
+                    {% if form.is_produced_in_house.errors %}
+                      <div class="invalid-feedback d-block">
+                        {% for error in form.is_produced_in_house.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
                     {% endif %}
+                    {% if form.is_produced_in_house.help_text %}
+                      <small class="form-text text-muted">{{ form.is_produced_in_house.help_text }}</small>
+                    {% endif %}
+                  </div>
                 </div>
+              </div>
             </div>
-        </form>
+          </div>
+
+          <!-- Costing Information Tab -->
+          <div class="tab-pane fade" id="costing" role="tabpanel" aria-labelledby="costing-tab">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.current_cost_per_unit.id_for_label }}">{{ form.current_cost_per_unit.label }}</label>
+                  <div class="input-group">
+                    <div class="input-group-prepend">
+                      <span class="input-group-text">₹</span>
+                    </div>
+                    {{ form.current_cost_per_unit }}
+                  </div>
+                  {% if form.current_cost_per_unit.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.current_cost_per_unit.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if form.current_cost_per_unit.help_text %}
+                    <small class="form-text text-muted">{{ form.current_cost_per_unit.help_text }}</small>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.costing_method.id_for_label }}">{{ form.costing_method.label }}</label>
+                  {{ form.costing_method }}
+                  {% if form.costing_method.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.costing_method.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="form-text text-muted">
+                    {% if form.costing_method.help_text %}
+                      {{ form.costing_method.help_text }}
+                    {% else %}
+                      {% trans "Method used to calculate costs when items are consumed" %}
+                    {% endif %}
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> {% trans "The costing method determines how costs are calculated when inventory is consumed:" %}
+                  <ul class="mt-2">
+                    <li><strong>{% trans "First In, First Out (FIFO)" %}:</strong> {% trans "Oldest inventory is used first" %}</li>
+                    <li><strong>{% trans "Last In, First Out (LIFO)" %}:</strong> {% trans "Newest inventory is used first" %}</li>
+                    <li><strong>{% trans "Weighted Average" %}:</strong> {% trans "Costs are averaged across all inventory" %}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inventory Management Tab -->
+          <div class="tab-pane fade" id="inventory" role="tabpanel" aria-labelledby="inventory-tab">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="{{ form.min_stock_level.id_for_label }}">{{ form.min_stock_level.label }}</label>
+                  <div class="input-group">
+                    {{ form.min_stock_level }}
+                    <div class="input-group-append">
+                      <span class="input-group-text" id="min-stock-unit">
+                        {% if form.instance.pk %}
+                          {{ form.instance.unit }}
+                        {% else %}
+                          {% trans "units" %}
+                        {% endif %}
+                      </span>
+                    </div>
+                  </div>
+                  {% if form.min_stock_level.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.min_stock_level.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="form-text text-muted">
+                    {% if form.min_stock_level.help_text %}
+                      {{ form.min_stock_level.help_text }}
+                    {% else %}
+                      {% trans "The system will generate alerts when inventory falls below this level" %}
+                    {% endif %}
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                {% if form.instance.pk %}
+                  <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% trans "Current inventory level" %}:
+                    {% with inventory=form.instance.inventory.first %}
+                      {% if inventory %}
+                        <strong>{{ inventory.quantity_on_hand }} {{ form.instance.unit }}</strong>
+                        {% if form.instance.is_below_min_stock %}
+                          <span class="badge badge-danger ml-2">{% trans "BELOW MINIMUM" %}</span>
+                        {% else %}
+                          <span class="badge badge-success ml-2">{% trans "ADEQUATE" %}</span>
+                        {% endif %}
+                      {% else %}
+                        <strong>0 {{ form.instance.unit }}</strong>
+                        <span class="badge badge-danger ml-2">{% trans "NO INVENTORY" %}</span>
+                      {% endif %}
+                    {% endwith %}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Additional Information Tab -->
+          <div class="tab-pane fade" id="additional" role="tabpanel" aria-labelledby="additional-tab">
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label for="{{ form.nutrient_info.id_for_label }}">{{ form.nutrient_info.label }}</label>
+                  {{ form.nutrient_info }}
+                  {% if form.nutrient_info.errors %}
+                    <div class="invalid-feedback d-block">
+                      {% for error in form.nutrient_info.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if form.nutrient_info.help_text %}
+                    <small class="form-text text-muted">{{ form.nutrient_info.help_text }}</small>
+                  {% else %}
+                    <small class="form-text text-muted">{% trans "Enter nutritional information, composition, or other details about this fodder type" %}</small>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {% if form.instance.pk %}
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>{% trans "Created" %}</label>
+                    <p class="form-control-static">{{ form.instance.created_at|date:"F j, Y, g:i a" }}</p>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>{% trans "Last Updated" %}</label>
+                    <p class="form-control-static">{{ form.instance.updated_at|date:"F j, Y, g:i a" }}</p>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Form Buttons -->
+        <div class="mt-4 border-top pt-3">
+          <button type="submit" class="btn btn-primary">
+            {% if form.instance.pk %}
+              <i class="fas fa-save"></i> {% trans "Save Changes" %}
+            {% else %}
+              <i class="fas fa-plus-circle"></i> {% trans "Create Fodder Type" %}
+            {% endif %}
+          </button>
+          <a href="{% url 'inventory:fodder_type_list' %}" class="btn btn-secondary ml-2">
+            <i class="fas fa-times"></i> {% trans "Cancel" %}
+          </a>
+
+          {% if form.instance.pk %}
+            <a href="{% url 'inventory:fodder_type_detail' form.instance.pk %}" class="btn btn-info ml-2">
+              <i class="fas fa-eye"></i> {% trans "View Details" %}
+            </a>
+          {% endif %}
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-$(document).ready(function() {
-    // Form validation logic can be added here
+  $(document).ready(function() {
+    // Initialize form
+    var form = $('form');
 
-    // Show warning if nutritional values exceed 100%
-    function checkNutritionalValues() {
-        var dryMatter = parseFloat($('#id_dry_matter_percentage').val()) || 0;
-        var protein = parseFloat($('#id_protein_percentage').val()) || 0;
-        var fiber = parseFloat($('#id_fiber_percentage').val()) || 0;
+    // Add the Bootstrap classes to the form elements
+    form.find('input[type="text"], input[type="number"], select, textarea').addClass('form-control');
+    form.find('input[type="checkbox"]').addClass('custom-control-input');
 
-        var total = dryMatter + protein + fiber;
+    // Update unit display when unit field changes
+    $('#{{ form.unit.id_for_label }}').on('change', function() {
+      $('#min-stock-unit').text($(this).val());
+    });
 
-        if (total > 100) {
-            if (!$('#nutrition_warning').length) {
-                $('<div id="nutrition_warning" class="alert alert-warning mt-3">' +
-                  '<i class="fas fa-exclamation-triangle"></i> ' +
-                  'Warning: The sum of nutritional values exceeds 100%. Please verify your inputs.' +
-                  '</div>').insertAfter('#id_fiber_percentage').closest('.form-group');
-            }
-        } else {
-            $('#nutrition_warning').remove();
-        }
+    // Show appropriate fields based on "is_produced_in_house" selection
+    function toggleProductionFields() {
+      var isProduced = $('#{{ form.is_produced_in_house.id_for_label }}').is(':checked');
+
+      // If in-house produced, ensure min_stock_level is required
+      if (isProduced) {
+        $('#{{ form.min_stock_level.id_for_label }}').attr('required', 'required');
+      }
     }
 
-    $('#id_dry_matter_percentage, #id_protein_percentage, #id_fiber_percentage').change(checkNutritionalValues);
+    // Run initially
+    toggleProductionFields();
 
-    // Initialize form with appropriate category default
-    var categoryField = $('#id_category');
-    if (categoryField.val() === '') {
-        categoryField.val('roughage');  // Default to roughage if no category selected
+    // Run when checkbox changes
+    $('#{{ form.is_produced_in_house.id_for_label }}').on('change', toggleProductionFields);
+
+    // Add validation classes to fields with errors
+    $('.invalid-feedback').each(function() {
+      $(this).prev().addClass('is-invalid');
+    });
+
+    // Enable tab navigation from validation errors
+    $('a[data-toggle="tab"]').on('click', function (e) {
+      e.preventDefault();
+      $(this).tab('show');
+    });
+
+    // If there are errors, activate the tab with errors
+    if ($('.invalid-feedback').length > 0) {
+      var firstErrorTab = $('.invalid-feedback').first().closest('.tab-pane').attr('id');
+      $('a[href="#' + firstErrorTab + '"]').tab('show');
     }
-});
+  });
 </script>
 {% endblock %}

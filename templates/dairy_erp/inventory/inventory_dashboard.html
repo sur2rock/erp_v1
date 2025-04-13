@@ -1,335 +1,338 @@
-{% extends "layout.html" %}
-
+{% extends "dairy_erp/base.html" %}
 {% load static %}
-{% load humanize %}
+{% load inventory_extras %}
+
+{% block title %}Inventory Dashboard{% endblock %}
 
 {% block content %}
-<div class="row mb-2">
-    <div class="col-sm-6">
-        <h2>Inventory Dashboard</h2>
-    </div>
-    <div class="col-sm-6">
-        <div class="float-right">
-            <div class="btn-group">
-                <a href="{% url 'inventory_transaction_create' %}" class="btn btn-success"><i class="fas fa-plus"></i> New Transaction</a>
-                <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    <span class="sr-only">Toggle Dropdown</span>
-                </button>
-                <div class="dropdown-menu">
-                    <a class="dropdown-item" href="{% url 'inventory_transaction_create' %}?transaction_type=purchase"><i class="fas fa-shopping-cart"></i> New Purchase</a>
-                    <a class="dropdown-item" href="{% url 'inventory_transaction_create' %}?transaction_type=consumption"><i class="fas fa-utensils"></i> New Consumption</a>
-                    <a class="dropdown-item" href="{% url 'inventory_transaction_create' %}?transaction_type=adjustment"><i class="fas fa-balance-scale"></i> New Adjustment</a>
-                    <a class="dropdown-item" href="{% url 'inventory_transaction_create' %}?transaction_type=transfer"><i class="fas fa-exchange-alt"></i> New Transfer</a>
-                </div>
-            </div>
-            <a href="{% url 'fodder_type_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Fodder Type</a>
-            <a href="{% url 'export_inventory_summary' %}" class="btn btn-info"><i class="fas fa-file-export"></i> Export Summary</a>
-        </div>
-    </div>
-</div>
+<!-- Inventory Dashboard -->
+<div class="container-fluid">
 
-<!-- Inventory Summary Cards -->
-<div class="row">
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-primary text-white mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-white-50">Total Fodder Types</div>
-                        <div class="h2">{{ inventory_summary.total_fodder_types }}</div>
-                    </div>
-                    <div>
-                        <i class="fas fa-leaf fa-3x text-white-50"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="{% url 'fodder_type_list' %}">View Details</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-            </div>
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Inventory Dashboard</h1>
+        <div>
+            <a href="{% url 'inventory:export_inventory_csv' %}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+                <i class="fas fa-download fa-sm text-white-50"></i> Export Inventory
+            </a>
+            <a href="{% url 'inventory:inventory_report' %}" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+                <i class="fas fa-chart-bar fa-sm text-white-50"></i> Detailed Reports
+            </a>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-success text-white mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-white-50">Total Inventory Value</div>
-                        <div class="h2">{{ inventory_summary.total_value|floatformat:0|intcomma }} {{ farm_settings.currency_symbol }}</div>
-                    </div>
-                    <div>
-                        <i class="fas fa-coins fa-3x text-white-50"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="#inventory-value">View Breakdown</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-warning text-white mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-white-50">Low Stock Items</div>
-                        <div class="h2">{{ inventory_summary.low_stock_count }}</div>
-                    </div>
-                    <div>
-                        <i class="fas fa-exclamation-triangle fa-3x text-white-50"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="#low-stock">View Items</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-info text-white mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-white-50">Recent Transactions</div>
-                        <div class="h2">{{ inventory_summary.recent_transaction_count }}</div>
-                    </div>
-                    <div>
-                        <i class="fas fa-history fa-3x text-white-50"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="{% url 'inventory_transaction_list' %}">View All</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Monthly Transaction Overview -->
-<div class="row">
-    <div class="col-xl-7">
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="fas fa-chart-bar mr-1"></i>
-                Monthly Transaction Overview
-            </div>
-            <div class="card-body">
-                <canvas id="monthlyTransactionsChart" width="100%" height="40"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-5">
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="fas fa-chart-pie mr-1"></i>
-                Inventory Composition
-            </div>
-            <div class="card-body">
-                <canvas id="inventoryCompositionChart" width="100%" height="40"></canvas>
+    <!-- Content Row - KPI Cards -->
+    <div class="row">
+        <!-- Total Inventory Value Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Inventory Value</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_inventory_value|floatformat:2 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-warehouse fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Low Stock Alert Section -->
-<div class="card mb-4" id="low-stock">
-    <div class="card-header">
-        <i class="fas fa-exclamation-triangle mr-1"></i>
-        Low Stock Alerts
-    </div>
-    <div class="card-body">
-        {% if low_stock_items %}
-        <div class="table-responsive">
-            <table class="table table-bordered" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>Fodder Type</th>
-                        <th>Category</th>
-                        <th>Current Stock</th>
-                        <th>Reorder Level</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in low_stock_items %}
-                    <tr>
-                        <td><a href="{% url 'fodder_type_detail' item.fodder_type.id %}">{{ item.fodder_type.name }}</a></td>
-                        <td>{{ item.fodder_type.get_category_display }}</td>
-                        <td>{{ item.current_stock|floatformat:2 }} {{ item.fodder_type.get_unit_of_measure_display }}</td>
-                        <td>{{ item.fodder_type.reorder_level|floatformat:2 }} {{ item.fodder_type.get_unit_of_measure_display }}</td>
-                        <td>
-                            {% if item.current_stock == 0 %}
-                                <span class="badge badge-danger">Out of Stock</span>
-                            {% elif item.current_stock < item.fodder_type.reorder_level %}
-                                <span class="badge badge-warning">Below Reorder Level</span>
-                            {% elif item.current_stock < item.fodder_type.ideal_stock_level %}
-                                <span class="badge badge-info">Below Ideal Level</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'inventory_transaction_create' %}?fodder_type={{ item.fodder_type.id }}&transaction_type=purchase" class="btn btn-sm btn-success">Order</a>
-                            <a href="{% url 'fodder_type_detail' item.fodder_type.id %}" class="btn btn-sm btn-info">Details</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="alert alert-success">
-            <i class="fas fa-check-circle"></i> All fodder types have sufficient stock levels.
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Inventory Value Breakdown -->
-<div class="card mb-4" id="inventory-value">
-    <div class="card-header">
-        <i class="fas fa-coins mr-1"></i>
-        Inventory Value Breakdown
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-xl-5">
-                <canvas id="inventoryValueChart" width="100%" height="400"></canvas>
+        <!-- Fodder Types Count -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Fodder Types</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ inventory_summary|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-leaf fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-xl-7">
-                <div class="table-responsive">
-                    <table class="table table-bordered" id="inventoryValueTable" width="100%" cellspacing="0">
-                        <thead>
-                            <tr>
-                                <th>Fodder Type</th>
-                                <th>Current Stock</th>
-                                <th>Unit Cost</th>
-                                <th>Total Value</th>
-                                <th>% of Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in inventory_value %}
-                            <tr>
-                                <td><a href="{% url 'fodder_type_detail' item.fodder_type.id %}">{{ item.fodder_type.name }}</a></td>
-                                <td>{{ item.current_stock|floatformat:2 }} {{ item.fodder_type.get_unit_of_measure_display }}</td>
-                                <td>{{ item.fodder_type.cost_per_unit|floatformat:2 }} {{ farm_settings.currency_symbol }}</td>
-                                <td>{{ item.value|floatformat:2 }} {{ farm_settings.currency_symbol }}</td>
-                                <td>{{ item.percentage|floatformat:1 }}%</td>
-                            </tr>
+        </div>
+
+        <!-- Low Stock Items -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Low Stock Items</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ low_stock_items|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Recent Transactions (24h)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ recent_transactions|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Current Inventory Chart -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Feed Consumption (Past 6 Months)</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="dropdownMenuLink">
+                            <div class="dropdown-header">Options:</div>
+                            <a class="dropdown-item" href="{% url 'inventory:consumption_list' %}">View All Consumption</a>
+                            <a class="dropdown-item" href="{% url 'inventory:consumption_add' %}">Record New Consumption</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="{% url 'inventory:export_consumption_csv' %}">Export to CSV</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="feedConsumptionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Low Stock Alert Pie Chart -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Low Stock Alerts</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="dropdownMenuLink">
+                            <div class="dropdown-header">Options:</div>
+                            <a class="dropdown-item" href="{% url 'inventory:purchase_add' %}">Record New Purchase</a>
+                            <a class="dropdown-item" href="{% url 'inventory:production_add' %}">Record Production</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if low_stock_items %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Low Stock Alert</h5>
+                        <p>The following items are below the minimum stock level:</p>
+                        <ul class="list-group mt-3">
+                            {% for item in low_stock_items %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ item.fodder_type.name }}</strong>
+                                    <br>
+                                    <small>{{ item.quantity_on_hand|format_quantity:item.fodder_type.unit }} (Min: {{ item.fodder_type.min_stock_level|format_quantity:item.fodder_type.unit }})</small>
+                                </div>
+                                <a href="{% url 'inventory:purchase_add' %}" class="btn btn-sm btn-primary">Purchase</a>
+                            </li>
                             {% endfor %}
-                        </tbody>
-                        <tfoot>
-                            <tr class="font-weight-bold bg-light">
-                                <td colspan="3">Total Inventory Value:</td>
-                                <td>{{ inventory_summary.total_value|floatformat:2 }} {{ farm_settings.currency_symbol }}</td>
-                                <td>100%</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-check-circle"></i> Inventory Levels Good</h5>
+                        <p>All inventory items are above their minimum stock levels.</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Recent Transactions Section -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-history mr-1"></i>
-        Recent Transactions
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-bordered" id="recentTransactionsTable" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Fodder Type</th>
-                        <th>Quantity</th>
-                        <th>Cost</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for transaction in recent_transactions %}
-                    <tr>
-                        <td>#{{ transaction.id }}</td>
-                        <td>{{ transaction.transaction_date|date:"M d, Y" }}</td>
-                        <td>
-                            {% if transaction.transaction_type == 'purchase' %}
-                                <span class="badge badge-success">Purchase</span>
-                            {% elif transaction.transaction_type == 'consumption' %}
-                                <span class="badge badge-warning">Consumption</span>
-                            {% elif transaction.transaction_type == 'adjustment' %}
-                                <span class="badge badge-info">Adjustment</span>
-                            {% elif transaction.transaction_type == 'expiry' %}
-                                <span class="badge badge-danger">Expiry</span>
-                            {% elif transaction.transaction_type == 'transfer' %}
-                                <span class="badge badge-primary">Transfer</span>
-                            {% else %}
-                                <span class="badge badge-secondary">{{ transaction.transaction_type|title }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if transaction.fodder_type %}
-                                <a href="{% url 'fodder_type_detail' transaction.fodder_type.id %}">{{ transaction.fodder_type.name }}</a>
-                            {% else %}
-                                <em class="text-muted">Deleted fodder type</em>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if transaction.transaction_type == 'consumption' or transaction.transaction_type == 'expiry' %}
-                                -{{ transaction.quantity|floatformat:2 }}
-                            {% else %}
-                                {{ transaction.quantity|floatformat:2 }}
-                            {% endif %}
-                            {% if transaction.fodder_type %}
-                                {{ transaction.fodder_type.get_unit_of_measure_display }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if transaction.cost %}
-                                {{ transaction.cost|floatformat:2 }} {{ farm_settings.currency_symbol }}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <a href="{% url 'inventory_transaction_detail' transaction.id %}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye"></i></a>
-                                <a href="{% url 'inventory_transaction_edit' transaction.id %}" class="btn btn-sm btn-primary" title="Edit"><i class="fas fa-edit"></i></a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center">No recent transactions found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="mt-3">
-            <a href="{% url 'inventory_transaction_list' %}" class="btn btn-primary">View All Transactions</a>
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Current Inventory Table -->
+        <div class="col-xl-12 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Current Inventory</h6>
+                    <div>
+                        <a href="{% url 'inventory:inventory_list' %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-list fa-sm"></i> View All
+                        </a>
+                        <a href="{% url 'inventory:fodder_type_add' %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-plus fa-sm"></i> Add Fodder Type
+                        </a>
+                        <a href="{% url 'inventory:purchase_add' %}" class="btn btn-sm btn-info">
+                            <i class="fas fa-shopping-cart fa-sm"></i> Record Purchase
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="inventoryTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Fodder Type</th>
+                                    <th>Category</th>
+                                    <th>Quantity on Hand</th>
+                                    <th>Cost per Unit</th>
+                                    <th>Total Value</th>
+                                    <th>Status</th>
+                                    <th>Consumption Rate</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in inventory_summary %}
+                                {% with consumption_data=item.fodder_type.id|get_consumption_trend:30 %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'inventory:fodder_type_detail' item.fodder_type.id %}">
+                                            {{ item.fodder_type.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ item.fodder_type.get_category_display }}</td>
+                                    <td>{{ item.quantity_on_hand|format_quantity:item.fodder_type.unit }}</td>
+                                    <td>{{ item.fodder_type.current_cost_per_unit|floatformat:2 }}</td>
+                                    <td>{{ item.quantity_on_hand|multiply:item.fodder_type.current_cost_per_unit|floatformat:2 }}</td>
+                                    <td>{{ item.fodder_type.id|stock_status_badge }}</td>
+                                    <td>
+                                        <small>Avg: {{ consumption_data.avg_daily|floatformat:2 }} {{ item.fodder_type.unit }}/day</small><br>
+                                        <small>Est. {{ consumption_data.days_left|days_of_stock_badge }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'inventory:inventory_edit' item.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'inventory:purchase_add' %}?fodder_type={{ item.fodder_type.id }}" class="btn btn-sm btn-success">
+                                                <i class="fas fa-cart-plus"></i>
+                                            </a>
+                                            <a href="{% url 'inventory:consumption_add' %}?fodder_type={{ item.fodder_type.id }}" class="btn btn-sm btn-warning">
+                                                <i class="fas fa-minus"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Consumption Trends Section -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-chart-line mr-1"></i>
-        Consumption Trends
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-xl-12">
-                <canvas id="consumptionTrendsChart" width="100%" height="50"></canvas>
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Recent Purchases -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Purchases</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Fodder Type</th>
+                                    <th>Quantity</th>
+                                    <th>Cost</th>
+                                    <th>Supplier</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for purchase in recent_purchases %}
+                                <tr>
+                                    <td>{{ purchase.date }}</td>
+                                    <td>{{ purchase.fodder_type.name }}</td>
+                                    <td>{{ purchase.quantity_purchased|format_quantity:purchase.fodder_type.unit }}</td>
+                                    <td>{{ purchase.total_cost|floatformat:2 }}</td>
+                                    <td>{{ purchase.supplier|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No recent purchases</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'inventory:purchase_list' %}" class="btn btn-sm btn-primary">View All Purchases</a>
+                            <a href="{% url 'inventory:purchase_add' %}" class="btn btn-sm btn-success">Record New Purchase</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Consumption -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Consumption</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Fodder Type</th>
+                                    <th>Quantity</th>
+                                    <th>Consumed By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for consumption in recent_consumption %}
+                                <tr>
+                                    <td>{{ consumption.date }}</td>
+                                    <td>{{ consumption.fodder_type.name }}</td>
+                                    <td>{{ consumption.quantity_consumed|format_quantity:consumption.fodder_type.unit }}</td>
+                                    <td>{{ consumption.get_consumed_by_display }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No recent consumption</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'inventory:consumption_list' %}" class="btn btn-sm btn-primary">View All Consumption</a>
+                            <a href="{% url 'inventory:consumption_add' %}" class="btn btn-sm btn-success">Record New Consumption</a>
+                            <a href="{% url 'inventory:batch_consumption' %}" class="btn btn-sm btn-info">Batch Consumption</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -337,92 +340,101 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
 <script>
-$(document).ready(function() {
-    // Initialize DataTables
-    $('#inventoryValueTable').DataTable({
-        order: [[3, 'desc']],
-        pageLength: 10,
-        lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]]
-    });
-    
-    $('#recentTransactionsTable').DataTable({
-        order: [[1, 'desc']],
-        pageLength: 10,
-        lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]]
-    });
-    
-    // Monthly Transactions Chart
-    var monthlyCtx = document.getElementById('monthlyTransactionsChart').getContext('2d');
-    var monthlyTransactionsChart = new Chart(monthlyCtx, {
-        type: 'bar',
-        data: {
-            labels: [{% for month in monthly_transactions %}'{{ month.month }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
-            datasets: [
-                {
-                    label: 'Purchases',
-                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                    borderColor: 'rgb(40, 167, 69)',
-                    borderWidth: 1,
-                    data: [{% for month in monthly_transactions %}{{ month.purchases }}{% if not forloop.last %}, {% endif %}{% endfor %}]
-                },
-                {
-                    label: 'Consumption',
-                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                    borderColor: 'rgb(255, 193, 7)',
-                    borderWidth: 1,
-                    data: [{% for month in monthly_transactions %}{{ month.consumption }}{% if not forloop.last %}, {% endif %}{% endfor %}]
-                },
-                {
-                    label: 'Adjustments',
-                    backgroundColor: 'rgba(23, 162, 184, 0.7)',
-                    borderColor: 'rgb(23, 162, 184)',
-                    borderWidth: 1,
-                    data: [{% for month in monthly_transactions %}{{ month.adjustments }}{% if not forloop.last %}, {% endif %}{% endfor %}]
-                }
-            ]
-        },
+// Set new default font family and font color to mimic Bootstrap's default styling
+Chart.defaults.global.defaultFontFamily = 'Nunito', '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+Chart.defaults.global.defaultFontColor = '#858796';
+
+// Feed Consumption Chart
+var ctx = document.getElementById("feedConsumptionChart");
+var chartData = {{ chart_data|safe }};
+
+if (chartData.labels.length > 0) {
+    var myLineChart = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
         options: {
-            responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: 10,
+                    right: 25,
+                    top: 25,
+                    bottom: 0
+                }
+            },
             scales: {
                 xAxes: [{
-                    stacked: false
+                    time: {
+                        unit: 'month'
+                    },
+                    gridLines: {
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        maxTicksLimit: 7
+                    }
                 }],
                 yAxes: [{
-                    stacked: false,
                     ticks: {
-                        beginAtZero: true
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        callback: function(value, index, values) {
+                            return value.toLocaleString();
+                        }
+                    },
+                    gridLines: {
+                        color: "rgb(234, 236, 244)",
+                        zeroLineColor: "rgb(234, 236, 244)",
+                        drawBorder: false,
+                        borderDash: [2],
+                        zeroLineBorderDash: [2]
                     }
-                }]
+                }],
+            },
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltips: {
+                backgroundColor: "rgb(255,255,255)",
+                bodyFontColor: "#858796",
+                titleMarginBottom: 10,
+                titleFontColor: '#6e707e',
+                titleFontSize: 14,
+                borderColor: '#dddfeb',
+                borderWidth: 1,
+                xPadding: 15,
+                yPadding: 15,
+                displayColors: false,
+                intersect: false,
+                mode: 'index',
+                caretPadding: 10,
+                callbacks: {
+                    label: function(tooltipItem, chart) {
+                        var datasetLabel = chart.datasets[tooltipItem.datasetIndex].label || '';
+                        return datasetLabel + ': ' + tooltipItem.yLabel.toLocaleString();
+                    }
+                }
             }
         }
     });
-    
-    // Inventory Composition Chart
-    var compositionCtx = document.getElementById('inventoryCompositionChart').getContext('2d');
-    var inventoryCompositionChart = new Chart(compositionCtx, {
-        type: 'pie',
-        data: {
-            labels: [{% for category in inventory_composition %}'{{ category.category_name }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for category in inventory_composition %}{{ category.percentage }}{% if not forloop.last %}, {% endif %}{% endfor %}],
-                backgroundColor: [
-                    'rgba(40, 167, 69, 0.7)',
-                    'rgba(0, 123, 255, 0.7)',
-                    'rgba(255, 193, 7, 0.7)',
-                    'rgba(23, 162, 184, 0.7)',
-                    'rgba(111, 66, 193, 0.7)',
-                    'rgba(102, 16, 242, 0.7)'
-                ],
-                borderColor: [
-                    'rgb(40, 167, 69)',
-                    'rgb(0, 123, 255)',
-                    'rgb(255, 193, 7)',
-                    'rgb(23, 162, 184)',
-                    'rgb(111, 66, 193)',
-                    'rgb(102, 16, 242)'
-                ],
-                borderWidth: 1
-            }]
+} else {
+    // If no data, display a message
+    var noDataDiv = document.createElement('div');
+    noDataDiv.className = 'text-center p-4';
+    noDataDiv.innerHTML = '<p class="text-muted">No consumption data available for the past 6 months.</p>';
+    ctx.parentNode.replaceChild(noDataDiv, ctx);
+}
+
+// Initialize DataTables
+$(document).ready(function() {
+    $('#inventoryTable').DataTable({
+        "order": [[5, "asc"]], // Order by status (show alerts first)
+        "pageLength": 10,
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    });
+});
+</script>
+{% endblock %}

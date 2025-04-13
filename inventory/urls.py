@@ -1,45 +1,60 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from . import views
+"""
+URL Configuration for the Inventory app in Super Duper Dairy ERP System
 
-router = DefaultRouter()
-router.register(r'fodder-types', views.FodderTypeViewSet)
-router.register(r'levels', views.FeedInventoryViewSet)
-router.register(r'purchases', views.FeedPurchaseViewSet)
-router.register(r'consumption', views.FeedConsumptionViewSet)
-router.register(r'in-house-production', views.InHouseFeedProductionViewSet)
+This module defines the URL patterns for the inventory management functionality,
+organizing routes by feature area (fodder types, inventory, purchases, consumption, etc.).
+"""
+
+from django.urls import path
+from . import views
 
 app_name = 'inventory'
 
 urlpatterns = [
-    # Fodder Type URLs
-    path('fodder-types/', views.fodder_type_list, name='fodder_type_list'),
-    path('fodder-types/add/', views.fodder_type_add, name='fodder_type_add'),
-    path('fodder-types/<int:fodder_type_id>/', views.fodder_type_detail, name='fodder_type_detail'),
-    path('fodder-types/<int:fodder_type_id>/edit/', views.fodder_type_edit, name='fodder_type_edit'),
+    # Dashboard
+    path('', views.InventoryDashboardView.as_view(), name='dashboard'),
 
-    # Inventory URLs
-    path('levels/', views.inventory_list, name='inventory_list'),
-    path('levels/<int:inventory_id>/adjust/', views.inventory_adjust, name='inventory_adjust'),
+    # Fodder Types
+    path('fodder-types/', views.FodderTypeListView.as_view(), name='fodder_type_list'),
+    path('fodder-types/add/', views.FodderTypeCreateView.as_view(), name='fodder_type_add'),
+    path('fodder-types/<int:pk>/', views.FodderTypeDetailView.as_view(), name='fodder_type_detail'),
+    path('fodder-types/<int:pk>/edit/', views.FodderTypeUpdateView.as_view(), name='fodder_type_edit'),
 
-    # Purchase URLs
-    path('purchases/', views.purchase_list, name='purchase_list'),
-    path('purchases/add/', views.purchase_add, name='purchase_add'),
-    path('purchases/<int:purchase_id>/edit/', views.purchase_edit, name='purchase_edit'),
-    path('purchases/<int:purchase_id>/delete/', views.purchase_delete, name='purchase_delete'),
+    # Inventory Management
+    path('levels/', views.InventoryListView.as_view(), name='inventory_list'),
+    path('levels/add/', views.InventoryCreateView.as_view(), name='inventory_add'),
+    path('levels/<int:pk>/edit/', views.InventoryUpdateView.as_view(), name='inventory_edit'),
 
-    # Consumption URLs
-    path('consumption/', views.consumption_list, name='consumption_list'),
-    path('consumption/add/', views.consumption_add, name='consumption_add'),
-    path('consumption/<int:consumption_id>/edit/', views.consumption_edit, name='consumption_edit'),
-    path('consumption/<int:consumption_id>/delete/', views.consumption_delete, name='consumption_delete'),
+    # Purchases
+    path('purchases/', views.PurchaseListView.as_view(), name='purchase_list'),
+    path('purchases/add/', views.PurchaseCreateView.as_view(), name='purchase_add'),
+    path('purchases/<int:pk>/edit/', views.PurchaseUpdateView.as_view(), name='purchase_edit'),
+    path('purchases/<int:pk>/delete/', views.PurchaseDeleteView.as_view(), name='purchase_delete'),
 
-    # In-House Production URLs
-    path('production/', views.production_list, name='production_list'),
-    path('production/add/', views.production_add, name='production_add'),
-    path('production/<int:production_id>/edit/', views.production_edit, name='production_edit'),
-    path('production/<int:production_id>/delete/', views.production_delete, name='production_delete'),
+    # Consumption
+    path('consumption/', views.ConsumptionListView.as_view(), name='consumption_list'),
+    path('consumption/add/', views.ConsumptionCreateView.as_view(), name='consumption_add'),
+    path('consumption/batch/', views.BatchConsumptionView.as_view(), name='batch_consumption'),
+    path('consumption/<int:pk>/edit/', views.ConsumptionUpdateView.as_view(), name='consumption_edit'),
+    path('consumption/<int:pk>/delete/', views.ConsumptionDeleteView.as_view(), name='consumption_delete'),
 
-    # API URLs
-    path('api/', include(router.urls)),
+    # In-House Production
+    path('production/', views.ProductionListView.as_view(), name='production_list'),
+    path('production/add/', views.ProductionCreateView.as_view(), name='production_add'),
+    path('production/<int:pk>/edit/', views.ProductionUpdateView.as_view(), name='production_edit'),
+    path('production/<int:pk>/delete/', views.ProductionDeleteView.as_view(), name='production_delete'),
+
+    # Transactions (Audit Log)
+    path('transactions/', views.InventoryTransactionListView.as_view(), name='transaction_list'),
+    path('transactions/<int:pk>/', views.InventoryTransactionDetailView.as_view(), name='transaction_detail'),
+
+    # Reports
+    path('reports/inventory/', views.InventoryReportView.as_view(), name='inventory_report'),
+    path('reports/inventory/export-csv/', views.ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
+    path('reports/consumption/export-csv/', views.ExportConsumptionCSVView.as_view(), name='export_consumption_csv'),
+
+    # API Endpoints for AJAX
+    path('api/fodder-types/autocomplete/', views.FodderTypeAutocompleteView.as_view(), name='fodder_type_autocomplete'),
+    path('api/inventory-level/<int:fodder_id>/', views.GetInventoryLevelView.as_view(), name='get_inventory_level'),
+    path('api/animal-count/<str:group>/', views.GetAnimalCountView.as_view(), name='get_animal_count'),
 ]
