@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -162,6 +163,13 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+}
+
+CELERY_BEAT_SCHEDULE = {
+    'run-monthly-profitability': {
+        'task': 'finance.tasks.run_monthly_profitability_task',
+        'schedule': crontab(day_of_month=1, hour=2),  # Run on the 1st of each month at 2 AM
+    },
 }
 
 AUTH_USER_MODEL = 'core.User'

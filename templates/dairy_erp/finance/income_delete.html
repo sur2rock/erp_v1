@@ -1,75 +1,80 @@
 {% extends 'dairy_erp/base.html' %}
-
+{# The page title and header are provided by the view context #}
 {% block title %}Delete Income{% endblock %}
-
 {% block header %}Delete Income{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Confirm Deletion</h5>
+<!-- Main container for the income deletion confirmation page -->
+<div class="container" role="main">
+  <div class="row">
+    <div class="col-12">
+      <!-- Card component to display deletion confirmation content -->
+      <div class="card">
+        <!-- Card header with a clear title -->
+        <header class="card-header">
+          <h5 class="mb-0">Confirm Deletion</h5>
+        </header>
+        <div class="card-body">
+          <!-- Inform the user what record is about to be deleted -->
+          <p>Please confirm that you want to delete the following income record:</p>
+          <!-- Table displaying key information about the income record -->
+          <table class="table">
+            <tr>
+              <th style="width: 30%">Date:</th>
+              <td>{{ income.date }}</td>
+            </tr>
+            <tr>
+              <th>Category:</th>
+              <td>{{ income.category.name }}</td>
+            </tr>
+            <tr>
+              <th>Description:</th>
+              <td>{{ income.description }}</td>
+            </tr>
+            {% if income.quantity %}
+            <tr>
+              <th>Quantity:</th>
+              <td>{{ income.quantity }}</td>
+            </tr>
+            {% endif %}
+            {% if income.unit_price %}
+            <tr>
+              <th>Unit Price:</th>
+              <td>{{ income.unit_price }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+              <th>Total Amount:</th>
+              <td>{{ income.total_amount }}</td>
+            </tr>
+            {% if income.customer %}
+            <tr>
+              <th>Customer:</th>
+              <td>{{ income.customer }}</td>
+            </tr>
+            {% endif %}
+            {% if income.related_buffalo %}
+            <tr>
+              <th>Related Buffalo:</th>
+              <td>{{ income.related_buffalo }}</td>
+            </tr>
+            {% endif %}
+          </table>
+          <!-- Warning message to alert the user that deletion is irreversible -->
+          <div class="alert alert-danger" role="alert">
+            <strong>Warning:</strong> This action cannot be undone.
+          </div>
+          <!-- Form to confirm the deletion action -->
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <a href="{% url 'finance:income_list' %}" class="btn btn-secondary">Cancel</a>
+              <button type="submit" class="btn btn-danger">Confirm Delete</button>
             </div>
-            <div class="card-body">
-                <p>Are you sure you want to delete the following income record?</p>
-                
-                <table class="table">
-                    <tr>
-                        <th style="width: 30%">Date:</th>
-                        <td>{{ income.date }}</td>
-                    </tr>
-                    <tr>
-                        <th>Category:</th>
-                        <td>{{ income.category.name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Description:</th>
-                        <td>{{ income.description }}</td>
-                    </tr>
-                    {% if income.quantity %}
-                    <tr>
-                        <th>Quantity:</th>
-                        <td>{{ income.quantity }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if income.unit_price %}
-                    <tr>
-                        <th>Unit Price:</th>
-                        <td>{{ income.unit_price }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <th>Total Amount:</th>
-                        <td>{{ income.total_amount }}</td>
-                    </tr>
-                    {% if income.customer %}
-                    <tr>
-                        <th>Customer:</th>
-                        <td>{{ income.customer }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if income.related_buffalo %}
-                    <tr>
-                        <th>Related Buffalo:</th>
-                        <td>{{ income.related_buffalo }}</td>
-                    </tr>
-                    {% endif %}
-                </table>
-                
-                <div class="alert alert-danger">
-                    <strong>Warning:</strong> This action cannot be undone.
-                </div>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'finance:income_list' %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-danger">Confirm Delete</button>
-                    </div>
-                </form>
-            </div>
+          </form>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

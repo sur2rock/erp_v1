@@ -1,300 +1,331 @@
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from datetime import timedelta
-from herd.models import Buffalo
+from django.urls import reverse
+from django.utils import timezone
+from django.core.validators import MinValueValidator
+from django.conf import settings
 from finance.models import ExpenseRecord, ExpenseCategory
-from core.models import GlobalSettings, Alert
+
+# Import Buffalo model if it exists in another app
+try:
+    from herd.models import Buffalo
+except ImportError:
+    # Create a placeholder model if Buffalo model doesn't exist yet
+    class Buffalo(models.Model):
+        name = models.CharField(max_length=100)
+
+        def __str__(self):
+            return self.name
+
+        class Meta:
+            abstract = True
 
 
 class UtilityReading(models.Model):
-    """Model for utility meter readings."""
-    UTILITY_ELECTRICITY = 'ELECTRICITY'
-    UTILITY_WATER = 'WATER'
-    UTILITY_FUEL = 'FUEL'
-    UTILITY_RO = 'RO_SYSTEM'
-    UTILITY_OTHER = 'OTHER'
-
-    UTILITY_TYPE_CHOICES = [
-        (UTILITY_ELECTRICITY, _('Electricity')),
-        (UTILITY_WATER, _('Water')),
-        (UTILITY_FUEL, _('Fuel')),
-        (UTILITY_RO, _('RO System')),
-        (UTILITY_OTHER, _('Other')),
+    UTILITY_TYPES = [
+        ('electricity', 'Electricity'),
+        ('water', 'Water'),
+        ('fuel', 'Fuel'),
+        ('ro_system', 'RO System'),
+        ('other', 'Other'),
     ]
 
-    reading_id = models.AutoField(primary_key=True)
-    utility_type = models.CharField(_('Utility Type'), max_length=20, choices=UTILITY_TYPE_CHOICES)
-    date = models.DateField(_('Reading Date'))
-    reading_value = models.DecimalField(_('Reading Value'), max_digits=10, decimal_places=2)
-    unit = models.CharField(_('Unit'), max_length=20, help_text=_('e.g., kWh, Cubic meters, Litres'))
-    meter_id = models.CharField(_('Meter ID'), max_length=50, blank=True)
-    notes = models.TextField(_('Notes'), blank=True)
+    utility_type = models.CharField(max_length=20, choices=UTILITY_TYPES)
+    date = models.DateField()
+    reading_value = models.FloatField(validators=[MinValueValidator(0)])
+    unit = models.CharField(max_length=20)  # kWh, cubic meters, liters, etc.
+    meter_id = models.CharField(max_length=50, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='utility_readings_created'
+    )
 
     def __str__(self):
-        utility_display = dict(self.UTILITY_TYPE_CHOICES).get(self.utility_type, self.utility_type)
-        return f"{self.date} - {utility_display}: {self.reading_value} {self.unit}"
+        return f"{self.get_utility_type_display()} Reading: {self.reading_value} {self.unit} on {self.date}"
+
+    def get_absolute_url(self):
+        return reverse('operations:utility_reading_detail', kwargs={'pk': self.pk})
 
     class Meta:
-        verbose_name = _('Utility Reading')
-        verbose_name_plural = _('Utility Readings')
         ordering = ['-date', 'utility_type']
+        verbose_name = 'Utility Reading'
+        verbose_name_plural = 'Utility Readings'
 
 
 class UtilityBill(models.Model):
-    """Model for utility bills."""
-    UTILITY_ELECTRICITY = 'ELECTRICITY'
-    UTILITY_WATER = 'WATER'
-    UTILITY_FUEL = 'FUEL'
-    UTILITY_RO = 'RO_SYSTEM'
-    UTILITY_OTHER = 'OTHER'
-
-    UTILITY_TYPE_CHOICES = [
-        (UTILITY_ELECTRICITY, _('Electricity')),
-        (UTILITY_WATER, _('Water')),
-        (UTILITY_FUEL, _('Fuel')),
-        (UTILITY_RO, _('RO System')),
-        (UTILITY_OTHER, _('Other')),
+    UTILITY_TYPES = [
+        ('electricity', 'Electricity'),
+        ('water', 'Water'),
+        ('fuel', 'Fuel'),
+        ('ro_system', 'RO System'),
+        ('other', 'Other'),
     ]
 
-    bill_id = models.AutoField(primary_key=True)
-    utility_type = models.CharField(_('Utility Type'), max_length=20, choices=UTILITY_TYPE_CHOICES)
-    billing_period_start = models.DateField(_('Billing Period Start'))
-    billing_period_end = models.DateField(_('Billing Period End'))
-    consumption = models.DecimalField(_('Consumption'), max_digits=10, decimal_places=2, null=True, blank=True,
-                                      help_text=_('Total units consumed during the period'))
-    unit_rate = models.DecimalField(_('Unit Rate'), max_digits=8, decimal_places=2, null=True, blank=True)
-    fixed_charges = models.DecimalField(_('Fixed Charges'), max_digits=10, decimal_places=2, default=0)
-    total_amount = models.DecimalField(_('Total Amount'), max_digits=10, decimal_places=2)
-    due_date = models.DateField(_('Due Date'), null=True, blank=True)
-    paid_date = models.DateField(_('Paid Date'), null=True, blank=True)
-    related_expense = models.OneToOneField(ExpenseRecord, on_delete=models.SET_NULL,
-                                           null=True, blank=True, related_name='utility_bill')
-    notes = models.TextField(_('Notes'), blank=True)
+    PAYMENT_STATUS = [
+        ('unpaid', 'Unpaid'),
+        ('paid', 'Paid'),
+        ('overdue', 'Overdue'),
+        ('disputed', 'Disputed'),
+    ]
+
+    utility_type = models.CharField(max_length=20, choices=UTILITY_TYPES)
+    billing_period_start = models.DateField()
+    billing_period_end = models.DateField()
+    consumption = models.FloatField(validators=[MinValueValidator(0)])
+    unit = models.CharField(max_length=20)  # kWh, cubic meters, liters, etc.
+    unit_rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    fixed_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    invoice_number = models.CharField(max_length=50, blank=True, null=True)
+    due_date = models.DateField()
+    paid_date = models.DateField(blank=True, null=True)
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS, default='unpaid')
+    related_expense = models.OneToOneField(
+        ExpenseRecord,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='utility_bill'
+    )
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='utility_bills_created'
+    )
+
+    def __str__(self):
+        return f"{self.get_utility_type_display()} Bill: {self.total_amount} for {self.billing_period_start} to {self.billing_period_end}"
+
+    def get_absolute_url(self):
+        return reverse('operations:utility_bill_detail', kwargs={'pk': self.pk})
 
     def save(self, *args, **kwargs):
-        # Auto-calculate total amount if not set
-        if self.consumption and self.unit_rate and not self.total_amount:
-            self.total_amount = (self.consumption * self.unit_rate) + self.fixed_charges
+        # Calculate total amount if not provided
+        if not self.total_amount:
+            self.total_amount = (self.consumption * float(self.unit_rate)) + float(self.fixed_charges)
+
+        # Create or update expense record
+        if not self.related_expense:
+            try:
+                expense_category = ExpenseCategory.objects.get(name='Utilities')
+            except ExpenseCategory.DoesNotExist:
+                expense_category = ExpenseCategory.objects.create(
+                    name='Utilities',
+                    is_direct_cost=False
+                )
+
+            expense_record = ExpenseRecord.objects.create(
+                date=self.billing_period_end,
+                category=expense_category,
+                description=f"{self.get_utility_type_display()} bill from {self.billing_period_start} to {self.billing_period_end}",
+                amount=self.total_amount,
+                related_module='UtilityBill',
+                related_record_id=self.pk if self.pk else None,
+                supplier_vendor=f"{self.get_utility_type_display()} Provider",
+                notes=self.notes
+            )
+            self.related_expense = expense_record
+        else:
+            self.related_expense.amount = self.total_amount
+            self.related_expense.date = self.billing_period_end
+            self.related_expense.description = f"{self.get_utility_type_display()} bill from {self.billing_period_start} to {self.billing_period_end}"
+            self.related_expense.notes = self.notes
+            self.related_expense.save()
+
+        # Update payment status based on due date and paid date
+        if self.paid_date:
+            self.payment_status = 'paid'
+        elif self.due_date < timezone.now().date() and self.payment_status != 'paid':
+            self.payment_status = 'overdue'
 
         super().save(*args, **kwargs)
 
-        # Create expense record if it doesn't exist
-        if not self.related_expense:
-            try:
-                utility_category, _ = ExpenseCategory.objects.get_or_create(
-                    name='Utilities',
-                    defaults={'is_direct_cost': False}
-                )
-
-                utility_display = dict(self.UTILITY_TYPE_CHOICES).get(self.utility_type, self.utility_type)
-                expense = ExpenseRecord.objects.create(
-                    date=self.billing_period_end,
-                    category=utility_category,
-                    description=f"{utility_display} bill for period {self.billing_period_start} to {self.billing_period_end}",
-                    amount=self.total_amount,
-                    related_module='UtilityBill',
-                    related_record_id=self.bill_id,
-                    notes=self.notes
-                )
-
-                self.related_expense = expense
-                self.save(update_fields=['related_expense'])
-            except Exception as e:
-                # Log the error
-                print(f"Error creating expense record: {e}")
-
-    def __str__(self):
-        utility_display = dict(self.UTILITY_TYPE_CHOICES).get(self.utility_type, self.utility_type)
-        return f"{utility_display} bill: {self.billing_period_start} - {self.billing_period_end}"
-
     class Meta:
-        verbose_name = _('Utility Bill')
-        verbose_name_plural = _('Utility Bills')
         ordering = ['-billing_period_end', 'utility_type']
+        verbose_name = 'Utility Bill'
+        verbose_name_plural = 'Utility Bills'
 
 
 class HealthRecord(models.Model):
-    """Model for animal health records and treatments."""
-    RECORD_VACCINATION = 'VACCINATION'
-    RECORD_TREATMENT = 'TREATMENT'
-    RECORD_CHECKUP = 'CHECKUP'
-    RECORD_BREEDING = 'BREEDING'
-
-    RECORD_TYPE_CHOICES = [
-        (RECORD_VACCINATION, _('Vaccination')),
-        (RECORD_TREATMENT, _('Treatment')),
-        (RECORD_CHECKUP, _('Checkup')),
-        (RECORD_BREEDING, _('Breeding Procedure')),
+    RECORD_TYPES = [
+        ('vaccination', 'Vaccination'),
+        ('treatment', 'Treatment'),
+        ('checkup', 'Checkup'),
+        ('breeding', 'Breeding Procedure'),
+        ('other', 'Other'),
     ]
 
-    health_record_id = models.AutoField(primary_key=True)
-    buffalo = models.ForeignKey(Buffalo, on_delete=models.CASCADE, related_name='health_records')
-    date = models.DateField(_('Date'))
-    record_type = models.CharField(_('Record Type'), max_length=20, choices=RECORD_TYPE_CHOICES)
-    description = models.CharField(_('Description'), max_length=255)
-    vet_name = models.CharField(_('Veterinarian'), max_length=100, blank=True)
-    medication_used = models.CharField(_('Medication Used'), max_length=255, blank=True)
-    medication_cost = models.DecimalField(_('Medication Cost'), max_digits=10, decimal_places=2, default=0)
-    service_cost = models.DecimalField(_('Service Cost'), max_digits=10, decimal_places=2, default=0)
-    total_cost = models.DecimalField(_('Total Cost'), max_digits=10, decimal_places=2, blank=True)
-    follow_up_date = models.DateField(_('Follow-up Date'), null=True, blank=True)
-    notes = models.TextField(_('Notes'), blank=True)
-    related_expense = models.OneToOneField(ExpenseRecord, on_delete=models.SET_NULL,
-                                           null=True, blank=True, related_name='health_record')
+    buffalo = models.ForeignKey(
+        'herd.Buffalo',
+        on_delete=models.CASCADE,
+        related_name='health_records'
+    )
+    date = models.DateField()
+    record_type = models.CharField(max_length=20, choices=RECORD_TYPES)
+    description = models.CharField(max_length=255)
+    vet_name = models.CharField(max_length=100, blank=True, null=True)
+    medication_used = models.CharField(max_length=255, blank=True, null=True)
+    medication_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)]
+    )
+    service_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)]
+    )
+    total_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        blank=True,
+        null=True
+    )
+    follow_up_date = models.DateField(blank=True, null=True)
+    related_expense = models.OneToOneField(
+        ExpenseRecord,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='health_record'
+    )
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        # Calculate total cost
-        self.total_cost = self.medication_cost + self.service_cost
-
-        # Save the record
-        super().save(*args, **kwargs)
-
-        # Update buffalo status if it's a breeding record
-        if self.record_type == self.RECORD_BREEDING:
-            if 'AI' in self.description.upper() or 'ARTIFICIAL INSEMINATION' in self.description.upper():
-                self.buffalo.update_status_from_lifecycle_event('BRED', self.date)
-            elif 'CONFIRM' in self.description.upper() or 'PREGNANCY CHECK' in self.description.upper():
-                self.buffalo.update_status_from_lifecycle_event('CONFIRMED_PREGNANT', self.date)
-
-        # Create expense record if there are costs and no related expense yet
-        if self.total_cost > 0 and not self.related_expense:
-            try:
-                vet_category, _ = ExpenseCategory.objects.get_or_create(
-                    name='Veterinary',
-                    defaults={'is_direct_cost': True}
-                )
-
-                expense = ExpenseRecord.objects.create(
-                    date=self.date,
-                    category=vet_category,
-                    description=f"{self.get_record_type_display()}: {self.description}",
-                    amount=self.total_cost,
-                    related_module='HealthRecord',
-                    related_record_id=self.health_record_id,
-                    related_buffalo=self.buffalo,
-                    notes=self.notes
-                )
-
-                self.related_expense = expense
-                self.save(update_fields=['related_expense'])
-            except Exception as e:
-                # Log the error
-                print(f"Error creating expense record: {e}")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='health_records_created'
+    )
 
     def __str__(self):
-        return f"{self.buffalo} - {self.get_record_type_display()}: {self.description} on {self.date}"
+        return f"{self.buffalo.name} - {self.get_record_type_display()} on {self.date}"
+
+    def get_absolute_url(self):
+        return reverse('operations:health_record_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        # Calculate total cost if not provided
+        if not self.total_cost:
+            self.total_cost = self.medication_cost + self.service_cost
+
+        # Create or update expense record if costs exist
+        if float(self.total_cost) > 0:
+            if not self.related_expense:
+                try:
+                    expense_category = ExpenseCategory.objects.get(name='Veterinary')
+                except ExpenseCategory.DoesNotExist:
+                    expense_category = ExpenseCategory.objects.create(
+                        name='Veterinary',
+                        is_direct_cost=True
+                    )
+
+                expense_record = ExpenseRecord.objects.create(
+                    date=self.date,
+                    category=expense_category,
+                    description=f"{self.get_record_type_display()} for {self.buffalo.name}: {self.description}",
+                    amount=self.total_cost,
+                    related_module='HealthRecord',
+                    related_record_id=self.pk if self.pk else None,
+                    related_buffalo=self.buffalo,
+                    supplier_vendor=self.vet_name,
+                    notes=self.notes
+                )
+                self.related_expense = expense_record
+            else:
+                self.related_expense.amount = self.total_cost
+                self.related_expense.date = self.date
+                self.related_expense.description = f"{self.get_record_type_display()} for {self.buffalo.name}: {self.description}"
+                self.related_expense.related_buffalo = self.buffalo
+                self.related_expense.supplier_vendor = self.vet_name
+                self.related_expense.notes = self.notes
+                self.related_expense.save()
+
+        super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = _('Health Record')
-        verbose_name_plural = _('Health Records')
-        ordering = ['-date']
+        ordering = ['-date', 'buffalo']
+        verbose_name = 'Health Record'
+        verbose_name_plural = 'Health Records'
 
 
 class ScheduledAppointment(models.Model):
-    """Model for scheduling health and breeding appointments."""
-    APPOINTMENT_VACCINATION = 'VACCINATION'
-    APPOINTMENT_CHECKUP = 'CHECKUP'
-    APPOINTMENT_BREEDING = 'BREEDING'
-
-    APPOINTMENT_TYPE_CHOICES = [
-        (APPOINTMENT_VACCINATION, _('Vaccination')),
-        (APPOINTMENT_CHECKUP, _('Checkup')),
-        (APPOINTMENT_BREEDING, _('Breeding')),
+    APPOINTMENT_TYPES = [
+        ('vaccination', 'Vaccination'),
+        ('checkup', 'Checkup'),
+        ('breeding', 'Breeding'),
+        ('other', 'Other'),
     ]
-
-    STATUS_SCHEDULED = 'SCHEDULED'
-    STATUS_COMPLETED = 'COMPLETED'
-    STATUS_MISSED = 'MISSED'
 
     STATUS_CHOICES = [
-        (STATUS_SCHEDULED, _('Scheduled')),
-        (STATUS_COMPLETED, _('Completed')),
-        (STATUS_MISSED, _('Missed')),
+        ('scheduled', 'Scheduled'),
+        ('completed', 'Completed'),
+        ('missed', 'Missed'),
+        ('cancelled', 'Cancelled'),
+        ('rescheduled', 'Rescheduled'),
     ]
 
-    appointment_id = models.AutoField(primary_key=True)
-    buffalo = models.ForeignKey(Buffalo, on_delete=models.CASCADE, related_name='scheduled_appointments',
-                                null=True, blank=True, help_text=_('If null, appointment is for whole herd'))
-    appointment_type = models.CharField(_('Appointment Type'), max_length=20, choices=APPOINTMENT_TYPE_CHOICES)
-    scheduled_date = models.DateField(_('Scheduled Date'))
-    status = models.CharField(_('Status'), max_length=20, choices=STATUS_CHOICES, default=STATUS_SCHEDULED)
-    related_health_record = models.OneToOneField(HealthRecord, on_delete=models.SET_NULL,
-                                                 null=True, blank=True, related_name='scheduled_appointment')
-    description = models.CharField(_('Description'), max_length=255)
-    notes = models.TextField(_('Notes'), blank=True)
+    buffalo = models.ForeignKey(
+        'herd.Buffalo',
+        on_delete=models.CASCADE,
+        related_name='scheduled_appointments',
+        blank=True,
+        null=True
+    )
+    appointment_type = models.CharField(max_length=20, choices=APPOINTMENT_TYPES)
+    scheduled_date = models.DateField()
+    scheduled_time = models.TimeField(blank=True, null=True)
+    description = models.CharField(max_length=255)
+    vet_name = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='scheduled')
+    related_health_record = models.OneToOneField(
+        HealthRecord,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='scheduled_appointment'
+    )
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
-        # Check if appointment is overdue and create alert if needed
-        if self.status == self.STATUS_SCHEDULED:
-            from django.utils import timezone
-            today = timezone.now().date()
-
-            if today > self.scheduled_date:
-                try:
-                    settings = GlobalSettings.objects.first()
-                    overdue_days = (today - self.scheduled_date).days
-
-                    if settings and overdue_days >= settings.alert_vet_visit_overdue_days:
-                        # Check if alert already exists
-                        existing_alert = Alert.objects.filter(
-                            related_module='ScheduledAppointment',
-                            related_record_id=self.appointment_id,
-                            status=Alert.STATUS_ACTIVE
-                        ).exists()
-
-                        if not existing_alert:
-                            buffalo_str = f"for {self.buffalo}" if self.buffalo else "for Herd"
-                            Alert.objects.create(
-                                title=f"Overdue {self.get_appointment_type_display()} {buffalo_str}",
-                                message=f"Appointment scheduled for {self.scheduled_date} is overdue by {overdue_days} days.",
-                                priority=Alert.PRIORITY_HIGH,
-                                related_module='ScheduledAppointment',
-                                related_record_id=self.appointment_id
-                            )
-                except Exception as e:
-                    # Log the error
-                    print(f"Error creating alert: {e}")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='appointments_created'
+    )
 
     def __str__(self):
-        buffalo_str = f"Buffalo: {self.buffalo}" if self.buffalo else "Whole Herd"
-        return f"{self.get_appointment_type_display()} for {buffalo_str} on {self.scheduled_date}"
+        if self.buffalo:
+            return f"{self.buffalo.name} - {self.get_appointment_type_display()} on {self.scheduled_date}"
+        return f"Herd {self.get_appointment_type_display()} on {self.scheduled_date}"
+
+    def get_absolute_url(self):
+        return reverse('operations:appointment_detail', kwargs={'pk': self.pk})
+
+    @property
+    def is_overdue(self):
+        return self.scheduled_date < timezone.now().date() and self.status == 'scheduled'
+
+    @property
+    def days_until_appointment(self):
+        if self.scheduled_date >= timezone.now().date():
+            return (self.scheduled_date - timezone.now().date()).days
+        return 0
 
     class Meta:
-        verbose_name = _('Scheduled Appointment')
-        verbose_name_plural = _('Scheduled Appointments')
-        ordering = ['scheduled_date', 'status']
-
-
-@receiver(post_save, sender=HealthRecord)
-def update_appointment_status(sender, instance, created, **kwargs):
-    """Update associated appointment as completed when health record is created."""
-    if created:
-        # Find appointment for this buffalo and type that is still scheduled
-        appointments = ScheduledAppointment.objects.filter(
-            buffalo=instance.buffalo,
-            appointment_type__in=[
-                ScheduledAppointment.APPOINTMENT_VACCINATION if instance.record_type == HealthRecord.RECORD_VACCINATION else
-                ScheduledAppointment.APPOINTMENT_CHECKUP if instance.record_type == HealthRecord.RECORD_CHECKUP else
-                ScheduledAppointment.APPOINTMENT_BREEDING if instance.record_type == HealthRecord.RECORD_BREEDING else None
-            ],
-            status=ScheduledAppointment.STATUS_SCHEDULED,
-            scheduled_date__lte=instance.date
-        ).order_by('scheduled_date')
-
-        if appointments.exists():
-            appointment = appointments.first()
-            appointment.status = ScheduledAppointment.STATUS_COMPLETED
-            appointment.related_health_record = instance
-            appointment.save()
+        ordering = ['scheduled_date', 'buffalo']
+        verbose_name = 'Scheduled Appointment'
+        verbose_name_plural = 'Scheduled Appointments'

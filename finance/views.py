@@ -1,6 +1,14 @@
+"""
+finance/views.py
+
+This file contains view functions and API viewsets for the finance module.
+Each view includes detailed comments explaining data aggregation, filtering,
+and business logic applied.
+"""
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Sum, Count
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
@@ -9,10 +17,10 @@ from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-import csv
-import io
-import json
-import datetime
+import csv, io, json
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
+from decimal import Decimal
 
 from .models import ExpenseCategory, IncomeCategory, ExpenseRecord, IncomeRecord, Profitability
 from .forms import ExpenseCategoryForm, IncomeCategoryForm, ExpenseRecordForm, IncomeRecordForm, MilkIncomeGeneratorForm
@@ -22,28 +30,28 @@ from herd.models import MilkProduction
 from configuration.models import GlobalSettings
 
 
-# Expense Category Views
+# ---------------- Expense Category Views ----------------
 @login_required
 def expense_category_list(request):
-    """Display all expense categories"""
+    """
+    Displays a list of all Expense Categories.
+    Also calculates the count and total expense for each category.
+    """
     categories = ExpenseCategory.objects.all()
-
-    # Count expenses per category
     for category in categories:
         category.expense_count = ExpenseRecord.objects.filter(category=category).count()
         category.expense_total = ExpenseRecord.objects.filter(category=category).aggregate(total=Sum('amount'))[
                                      'total'] or 0
-
-    context = {
-        'title': 'Expense Categories',
-        'categories': categories,
-    }
+    context = {'title': 'Expense Categories', 'categories': categories}
     return render(request, 'dairy_erp/finance/expense_category_list.html', context)
 
 
 @login_required
 def expense_category_add(request):
-    """Add a new expense category"""
+    """
+    View to add a new Expense Category.
+    On POST, validates the form and saves the new category.
+    """
     if request.method == 'POST':
         form = ExpenseCategoryForm(request.POST)
         if form.is_valid():
@@ -52,19 +60,17 @@ def expense_category_add(request):
             return redirect('finance:expense_category_list')
     else:
         form = ExpenseCategoryForm()
-
-    context = {
-        'title': 'Add Expense Category',
-        'form': form,
-    }
+    context = {'title': 'Add Expense Category', 'form': form}
     return render(request, 'dairy_erp/finance/expense_category_form.html', context)
 
 
 @login_required
 def expense_category_edit(request, category_id):
-    """Edit an existing expense category"""
+    """
+    View to edit an existing Expense Category.
+    Loads the instance using get_object_or_404 and updates on submission.
+    """
     category = get_object_or_404(ExpenseCategory, id=category_id)
-
     if request.method == 'POST':
         form = ExpenseCategoryForm(request.POST, instance=category)
         if form.is_valid():
@@ -73,37 +79,30 @@ def expense_category_edit(request, category_id):
             return redirect('finance:expense_category_list')
     else:
         form = ExpenseCategoryForm(instance=category)
-
-    context = {
-        'title': 'Edit Expense Category',
-        'form': form,
-        'category': category,
-    }
+    context = {'title': 'Edit Expense Category', 'form': form, 'category': category}
     return render(request, 'dairy_erp/finance/expense_category_form.html', context)
 
 
-# Income Category Views
+# ---------------- Income Category Views ----------------
 @login_required
 def income_category_list(request):
-    """Display all income categories"""
+    """
+    Displays all Income Categories and aggregates the number and total income for each.
+    """
     categories = IncomeCategory.objects.all()
-
-    # Count income records per category
     for category in categories:
         category.income_count = IncomeRecord.objects.filter(category=category).count()
         category.income_total = IncomeRecord.objects.filter(category=category).aggregate(total=Sum('total_amount'))[
                                     'total'] or 0
-
-    context = {
-        'title': 'Income Categories',
-        'categories': categories,
-    }
+    context = {'title': 'Income Categories', 'categories': categories}
     return render(request, 'dairy_erp/finance/income_category_list.html', context)
 
 
 @login_required
 def income_category_add(request):
-    """Add a new income category"""
+    """
+    View to add a new Income Category.
+    """
     if request.method == 'POST':
         form = IncomeCategoryForm(request.POST)
         if form.is_valid():
@@ -112,19 +111,16 @@ def income_category_add(request):
             return redirect('finance:income_category_list')
     else:
         form = IncomeCategoryForm()
-
-    context = {
-        'title': 'Add Income Category',
-        'form': form,
-    }
+    context = {'title': 'Add Income Category', 'form': form}
     return render(request, 'dairy_erp/finance/income_category_form.html', context)
 
 
 @login_required
 def income_category_edit(request, category_id):
-    """Edit an existing income category"""
+    """
+    View to edit an existing Income Category.
+    """
     category = get_object_or_404(IncomeCategory, id=category_id)
-
     if request.method == 'POST':
         form = IncomeCategoryForm(request.POST, instance=category)
         if form.is_valid():
@@ -133,46 +129,37 @@ def income_category_edit(request, category_id):
             return redirect('finance:income_category_list')
     else:
         form = IncomeCategoryForm(instance=category)
-
-    context = {
-        'title': 'Edit Income Category',
-        'form': form,
-        'category': category,
-    }
+    context = {'title': 'Edit Income Category', 'form': form, 'category': category}
     return render(request, 'dairy_erp/finance/income_category_form.html', context)
 
 
-# Expense Record Views
+# ---------------- Expense Record Views ----------------
 @login_required
 def expense_list(request):
-    """Display expense records with filtering options"""
+    """
+    Lists expense records with optional filtering by date range and category.
+    Also prepares data for the expense breakdown chart.
+    """
     today = timezone.now().date()
-    start_date = request.GET.get('start_date', (today - datetime.timedelta(days=30)).isoformat())
+    default_start = (today - timedelta(days=30)).isoformat()
+    start_date = request.GET.get('start_date', default_start)
     end_date = request.GET.get('end_date', today.isoformat())
     category_id = request.GET.get('category_id', '')
 
     expenses = ExpenseRecord.objects.all()
-
     if start_date:
         expenses = expenses.filter(date__gte=start_date)
-
     if end_date:
         expenses = expenses.filter(date__lte=end_date)
-
     if category_id:
         expenses = expenses.filter(category_id=category_id)
-
-    # Get all expense categories for the filter dropdown
     categories = ExpenseCategory.objects.all()
-
-    # Calculate total expenses
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
-    # Prepare data for expense breakdown chart
+    # Prepare chart data by aggregating expenses by category.
     expense_breakdown = expenses.values('category__name').annotate(
         total=Sum('amount')
     ).order_by('-total')
-
     chart_labels = [entry['category__name'] for entry in expense_breakdown]
     chart_values = [float(entry['total']) for entry in expense_breakdown]
 
@@ -192,88 +179,74 @@ def expense_list(request):
 
 @login_required
 def expense_add(request):
-    """Add a new expense record"""
+    """
+    View to add a new Expense Record.
+    On GET, displays a form pre-filled with current date.
+    """
     if request.method == 'POST':
         form = ExpenseRecordForm(request.POST)
         if form.is_valid():
-            expense = form.save()
-            messages.success(request, f'Expense record has been added successfully!')
+            form.save()
+            messages.success(request, 'Expense record has been added successfully!')
             return redirect('finance:expense_list')
     else:
         form = ExpenseRecordForm(initial={'date': timezone.now().date()})
-
-    context = {
-        'title': 'Add Expense',
-        'form': form,
-    }
+    context = {'title': 'Add Expense', 'form': form}
     return render(request, 'dairy_erp/finance/expense_form.html', context)
 
 
 @login_required
 def expense_edit(request, expense_id):
-    """Edit an existing expense record"""
+    """
+    View to edit an existing Expense Record.
+    """
     expense = get_object_or_404(ExpenseRecord, id=expense_id)
-
     if request.method == 'POST':
         form = ExpenseRecordForm(request.POST, instance=expense)
         if form.is_valid():
             form.save()
-            messages.success(request, f'Expense record has been updated successfully!')
+            messages.success(request, 'Expense record has been updated successfully!')
             return redirect('finance:expense_list')
     else:
         form = ExpenseRecordForm(instance=expense)
-
-    context = {
-        'title': 'Edit Expense',
-        'form': form,
-        'expense': expense,
-    }
+    context = {'title': 'Edit Expense', 'form': form, 'expense': expense}
     return render(request, 'dairy_erp/finance/expense_form.html', context)
 
 
 @login_required
 def expense_delete(request, expense_id):
-    """Delete an expense record"""
+    """
+    View to confirm and delete an Expense Record.
+    """
     expense = get_object_or_404(ExpenseRecord, id=expense_id)
-
     if request.method == 'POST':
         expense.delete()
-        messages.success(request, f'Expense record has been deleted successfully!')
+        messages.success(request, 'Expense record has been deleted successfully!')
         return redirect('finance:expense_list')
-
-    context = {
-        'title': 'Delete Expense',
-        'expense': expense,
-    }
+    context = {'title': 'Delete Expense', 'expense': expense}
     return render(request, 'dairy_erp/finance/expense_delete.html', context)
 
 
 @login_required
 def export_expenses(request):
-    """Export expense data to CSV"""
+    """
+    Exports filtered expense records to a CSV file.
+    """
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
     category_id = request.GET.get('category_id', '')
 
     expenses = ExpenseRecord.objects.all()
-
     if start_date:
         expenses = expenses.filter(date__gte=start_date)
-
     if end_date:
         expenses = expenses.filter(date__lte=end_date)
-
     if category_id:
         expenses = expenses.filter(category_id=category_id)
 
-    # Create CSV file
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-
-    # Write header row
     writer.writerow(['Date', 'Category', 'Description', 'Amount', 'Supplier/Vendor', 'Related Buffalo', 'Notes'])
-
-    # Write data rows
     for expense in expenses:
         writer.writerow([
             expense.date,
@@ -284,47 +257,38 @@ def export_expenses(request):
             str(expense.related_buffalo) if expense.related_buffalo else '',
             expense.notes or ''
         ])
-
-    # Prepare response
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='text/csv')
     response[
         'Content-Disposition'] = f'attachment; filename="expenses_export_{timezone.now().strftime("%Y_%m_%d")}.csv"'
-
     return response
 
 
-# Income Record Views
+# ---------------- Income Record Views ----------------
 @login_required
 def income_list(request):
-    """Display income records with filtering options"""
+    """
+    Lists income records with optional filtering by date range and category.
+    Also aggregates the total income and prepares chart data.
+    """
     today = timezone.now().date()
-    start_date = request.GET.get('start_date', (today - datetime.timedelta(days=30)).isoformat())
+    default_start = (today - timedelta(days=30)).isoformat()
+    start_date = request.GET.get('start_date', default_start)
     end_date = request.GET.get('end_date', today.isoformat())
     category_id = request.GET.get('category_id', '')
 
     income_records = IncomeRecord.objects.all()
-
     if start_date:
         income_records = income_records.filter(date__gte=start_date)
-
     if end_date:
         income_records = income_records.filter(date__lte=end_date)
-
     if category_id:
         income_records = income_records.filter(category_id=category_id)
-
-    # Get all income categories for the filter dropdown
     categories = IncomeCategory.objects.all()
-
-    # Calculate total income
     total_income = income_records.aggregate(total=Sum('total_amount'))['total'] or 0
 
-    # Prepare data for income breakdown chart
-    income_breakdown = income_records.values('category__name').annotate(
-        total=Sum('total_amount')
-    ).order_by('-total')
-
+    # Chart data aggregation: group income by category.
+    income_breakdown = income_records.values('category__name').annotate(total=Sum('total_amount')).order_by('-total')
     chart_labels = [entry['category__name'] for entry in income_breakdown]
     chart_values = [float(entry['total']) for entry in income_breakdown]
 
@@ -344,90 +308,76 @@ def income_list(request):
 
 @login_required
 def income_add(request):
-    """Add a new income record"""
+    """
+    View to add a new Income Record.
+    Uses the IncomeRecordForm and sets the default date.
+    """
     if request.method == 'POST':
         form = IncomeRecordForm(request.POST)
         if form.is_valid():
-            income = form.save()
-            messages.success(request, f'Income record has been added successfully!')
+            form.save()
+            messages.success(request, 'Income record has been added successfully!')
             return redirect('finance:income_list')
     else:
         form = IncomeRecordForm(initial={'date': timezone.now().date()})
-
-    context = {
-        'title': 'Add Income',
-        'form': form,
-    }
+    context = {'title': 'Add Income', 'form': form}
     return render(request, 'dairy_erp/finance/income_form.html', context)
 
 
 @login_required
 def income_edit(request, income_id):
-    """Edit an existing income record"""
+    """
+    View to edit an existing Income Record.
+    """
     income = get_object_or_404(IncomeRecord, id=income_id)
-
     if request.method == 'POST':
         form = IncomeRecordForm(request.POST, instance=income)
         if form.is_valid():
             form.save()
-            messages.success(request, f'Income record has been updated successfully!')
+            messages.success(request, 'Income record has been updated successfully!')
             return redirect('finance:income_list')
     else:
         form = IncomeRecordForm(instance=income)
-
-    context = {
-        'title': 'Edit Income',
-        'form': form,
-        'income': income,
-    }
+    context = {'title': 'Edit Income', 'form': form, 'income': income}
     return render(request, 'dairy_erp/finance/income_form.html', context)
 
 
 @login_required
 def income_delete(request, income_id):
-    """Delete an income record"""
+    """
+    View to delete an Income Record after confirmation.
+    """
     income = get_object_or_404(IncomeRecord, id=income_id)
-
     if request.method == 'POST':
         income.delete()
-        messages.success(request, f'Income record has been deleted successfully!')
+        messages.success(request, 'Income record has been deleted successfully!')
         return redirect('finance:income_list')
-
-    context = {
-        'title': 'Delete Income',
-        'income': income,
-    }
+    context = {'title': 'Delete Income', 'income': income}
     return render(request, 'dairy_erp/finance/income_delete.html', context)
 
 
 @login_required
 def export_income(request):
-    """Export income data to CSV"""
+    """
+    Exports the filtered income records as a CSV file.
+    """
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
     category_id = request.GET.get('category_id', '')
 
     income_records = IncomeRecord.objects.all()
-
     if start_date:
         income_records = income_records.filter(date__gte=start_date)
-
     if end_date:
         income_records = income_records.filter(date__lte=end_date)
-
     if category_id:
         income_records = income_records.filter(category_id=category_id)
 
-    # Create CSV file
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-
-    # Write header row
     writer.writerow(
         ['Date', 'Category', 'Description', 'Quantity', 'Unit Price', 'Total Amount', 'Customer', 'Related Buffalo',
          'Notes'])
-
-    # Write data rows
     for income in income_records:
         writer.writerow([
             income.date,
@@ -440,18 +390,19 @@ def export_income(request):
             str(income.related_buffalo) if income.related_buffalo else '',
             income.notes or ''
         ])
-
-    # Prepare response
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="income_export_{timezone.now().strftime("%Y_%m_%d")}.csv"'
-
     return response
 
 
 @login_required
 def milk_income_generator(request):
-    """Auto-generate income records from milk production data"""
+    """
+    View to generate income records automatically based on milk production data.
+    It groups milk production records by date and creates a corresponding income record
+    if one doesn't already exist for that date.
+    """
     if request.method == 'POST':
         form = MilkIncomeGeneratorForm(request.POST)
         if form.is_valid():
@@ -460,38 +411,30 @@ def milk_income_generator(request):
             milk_price = form.cleaned_data['milk_price']
             customer = form.cleaned_data['customer']
 
-            # Get milk production data for the date range
+            # Retrieve milk production data between the provided dates.
             milk_production = MilkProduction.objects.filter(date__gte=start_date, date__lte=end_date)
-
-            # Group production by date
             milk_by_date = {}
             for record in milk_production:
                 date_key = record.date
-                if date_key not in milk_by_date:
-                    milk_by_date[date_key] = 0
-                milk_by_date[date_key] += record.quantity_litres
+                # Accumulate milk production using Decimal for precision.
+                milk_by_date[date_key] = milk_by_date.get(date_key, Decimal('0.00')) + record.quantity_litres
 
-            # Create income records
             records_created = 0
-            for date, quantity in milk_by_date.items():
-                # Check if a record for this date already exists
+            # For each date, create an income record if one for "Milk Sales" does not exist.
+            for record_date, quantity in milk_by_date.items():
                 existing = IncomeRecord.objects.filter(
-                    date=date,
+                    date=record_date,
                     category__name='Milk Sales'
                 ).exists()
-
                 if not existing:
-                    # Get or create 'Milk Sales' category
-                    milk_category, _ = IncomeCategory.objects.get_or_create(
+                    milk_category, created = IncomeCategory.objects.get_or_create(
                         name='Milk Sales',
                         defaults={'description': 'Income from selling milk'}
                     )
-
-                    # Create income record
                     IncomeRecord.objects.create(
-                        date=date,
+                        date=record_date,
                         category=milk_category,
-                        description=f'Milk sales for {date.strftime("%Y-%m-%d")}',
+                        description=f'Milk sales for {record_date.strftime("%Y-%m-%d")}',
                         quantity=quantity,
                         unit_price=milk_price,
                         total_amount=quantity * milk_price,
@@ -499,72 +442,46 @@ def milk_income_generator(request):
                         notes='Auto-generated from milk production records'
                     )
                     records_created += 1
-
             messages.success(request, f'{records_created} income records have been generated!')
             return redirect('finance:income_list')
     else:
-        # Set default dates (last 7 days)
+        # Set default date range to the last 7 days.
         end_date = timezone.now().date()
-        start_date = end_date - datetime.timedelta(days=7)
-
-        form = MilkIncomeGeneratorForm(initial={
-            'start_date': start_date,
-            'end_date': end_date,
-        })
-
-    context = {
-        'title': 'Generate Milk Income',
-        'form': form,
-    }
+        start_date = end_date - timedelta(days=7)
+        form = MilkIncomeGeneratorForm(initial={'start_date': start_date, 'end_date': end_date})
+    context = {'title': 'Generate Milk Income', 'form': form}
     return render(request, 'dairy_erp/finance/milk_income_generator.html', context)
 
 
-# Profitability Views
 @login_required
 def profitability(request):
-    """Display profitability summary and charts"""
-    # Get profitability records for the last 12 months
+    """
+    Displays profitability summaries.
+    If no records exist for the last 12 months, calculates them on-the-fly.
+    Aggregates data for charts showing trends in income, expenses, and profits.
+    """
     today = timezone.now().date()
-    start_date = today.replace(day=1, month=today.month - 11 if today.month > 11 else today.month + 1,
-                               year=today.year - 1 if today.month <= 11 else today.year)
+    # Display last 12 months starting from 11 months ago.
+    start_date = today - relativedelta(months=11)
+    profitability_records = Profitability.objects.filter(year__gte=start_date.year).order_by('year', 'month')
 
-    # Get all profitability records
-    profitability_records = Profitability.objects.filter(
-        year__gte=start_date.year,
-        month__gte=start_date.month if start_date.year == today.year else 1
-    ).order_by('year', 'month')
-
-    # If no records found, calculate on-the-fly
-    if not profitability_records:
+    # If no profitability records exist, calculate and create them.
+    if not profitability_records.exists():
         current_date = start_date
         while current_date <= today:
             year = current_date.year
             month = current_date.month
-
-            # Get income for this month
-            income = IncomeRecord.objects.filter(
-                date__year=year,
-                date__month=month
-            ).aggregate(total=Sum('total_amount'))['total'] or 0
-
-            # Get expenses for this month
+            income = \
+            IncomeRecord.objects.filter(date__year=year, date__month=month).aggregate(total=Sum('total_amount'))[
+                'total'] or Decimal('0.00')
             direct_expenses = ExpenseRecord.objects.filter(
-                date__year=year,
-                date__month=month,
-                category__is_direct_cost=True
-            ).aggregate(total=Sum('amount'))['total'] or 0
-
+                date__year=year, date__month=month, category__is_direct_cost=True
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
             indirect_expenses = ExpenseRecord.objects.filter(
-                date__year=year,
-                date__month=month,
-                category__is_direct_cost=False
-            ).aggregate(total=Sum('amount'))['total'] or 0
-
-            # Calculate profits
+                date__year=year, date__month=month, category__is_direct_cost=False
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
             gross_profit = income - direct_expenses
             net_profit = gross_profit - indirect_expenses
-
-            # Create profitability record
             Profitability.objects.create(
                 year=year,
                 month=month,
@@ -573,31 +490,19 @@ def profitability(request):
                 indirect_costs=indirect_expenses,
                 gross_profit=gross_profit,
                 net_profit=net_profit,
-                # ROI and cash surplus calculations would be more complex
-                roi_percentage=0,
+                roi=0,
                 cash_surplus=0
             )
+            current_date += relativedelta(months=1)
+        profitability_records = Profitability.objects.filter(year__gte=start_date.year).order_by('year', 'month')
 
-            # Move to next month
-            if month == 12:
-                current_date = current_date.replace(year=year + 1, month=1)
-            else:
-                current_date = current_date.replace(month=month + 1)
-
-        # Reload profitability records
-        profitability_records = Profitability.objects.filter(
-            year__gte=start_date.year,
-            month__gte=start_date.month if start_date.year == today.year else 1
-        ).order_by('year', 'month')
-
-    # Prepare data for charts
+    # Prepare chart data for display on the dashboard.
     months = []
     income_data = []
     direct_costs_data = []
     indirect_costs_data = []
     gross_profit_data = []
     net_profit_data = []
-
     for record in profitability_records:
         month_label = f"{record.year}-{record.month:02d}"
         months.append(month_label)
@@ -607,7 +512,6 @@ def profitability(request):
         gross_profit_data.append(float(record.gross_profit))
         net_profit_data.append(float(record.net_profit))
 
-    # Calculate overall totals
     overall_income = sum(income_data)
     overall_direct_costs = sum(direct_costs_data)
     overall_indirect_costs = sum(indirect_costs_data)
@@ -635,35 +539,23 @@ def profitability(request):
 @login_required
 @require_POST
 def calculate_profitability(request):
-    """Manually trigger profitability calculation for a specific month"""
+    """
+    Manually triggers the recalculation of profitability for a specific month.
+    Expects 'year' and 'month' in POST data and updates/creates a Profitability record.
+    """
     year = int(request.POST.get('year'))
     month = int(request.POST.get('month'))
-
-    # Get income for this month
-    income = IncomeRecord.objects.filter(
-        date__year=year,
-        date__month=month
-    ).aggregate(total=Sum('total_amount'))['total'] or 0
-
-    # Get expenses for this month
+    income = IncomeRecord.objects.filter(date__year=year, date__month=month).aggregate(total=Sum('total_amount'))[
+                 'total'] or Decimal('0.00')
     direct_expenses = ExpenseRecord.objects.filter(
-        date__year=year,
-        date__month=month,
-        category__is_direct_cost=True
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
+        date__year=year, date__month=month, category__is_direct_cost=True
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     indirect_expenses = ExpenseRecord.objects.filter(
-        date__year=year,
-        date__month=month,
-        category__is_direct_cost=False
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
-    # Calculate profits
+        date__year=year, date__month=month, category__is_direct_cost=False
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     gross_profit = income - direct_expenses
     net_profit = gross_profit - indirect_expenses
-
-    # Update or create profitability record
-    profitability, created = Profitability.objects.update_or_create(
+    Profitability.objects.update_or_create(
         year=year,
         month=month,
         defaults={
@@ -672,19 +564,20 @@ def calculate_profitability(request):
             'indirect_costs': indirect_expenses,
             'gross_profit': gross_profit,
             'net_profit': net_profit,
-            # ROI and cash surplus calculations would be more complex
-            'roi_percentage': 0,
+            'roi': 0,
             'cash_surplus': 0
         }
     )
-
     messages.success(request, f'Profitability has been calculated for {year}-{month:02d}!')
     return redirect('finance:profitability')
 
 
-# API ViewSets
+# --------------- REST API ViewSets ---------------
 class ExpenseCategoryViewSet(viewsets.ModelViewSet):
-    """API endpoint for ExpenseCategory"""
+    """
+    API endpoint for ExpenseCategory.
+    Allows search by name.
+    """
     queryset = ExpenseCategory.objects.all()
     serializer_class = ExpenseCategorySerializer
     filter_backends = [filters.SearchFilter]
@@ -692,7 +585,9 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
 
 
 class IncomeCategoryViewSet(viewsets.ModelViewSet):
-    """API endpoint for IncomeCategory"""
+    """
+    API endpoint for IncomeCategory.
+    """
     queryset = IncomeCategory.objects.all()
     serializer_class = IncomeCategorySerializer
     filter_backends = [filters.SearchFilter]
@@ -700,7 +595,10 @@ class IncomeCategoryViewSet(viewsets.ModelViewSet):
 
 
 class ExpenseRecordViewSet(viewsets.ModelViewSet):
-    """API endpoint for ExpenseRecord"""
+    """
+    API endpoint for ExpenseRecord.
+    Provides filtering by category, date, or related buffalo.
+    """
     queryset = ExpenseRecord.objects.all()
     serializer_class = ExpenseRecordSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -709,7 +607,10 @@ class ExpenseRecordViewSet(viewsets.ModelViewSet):
 
 
 class IncomeRecordViewSet(viewsets.ModelViewSet):
-    """API endpoint for IncomeRecord"""
+    """
+    API endpoint for IncomeRecord.
+    Allows filtering by category, date, or related buffalo.
+    """
     queryset = IncomeRecord.objects.all()
     serializer_class = IncomeRecordSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -718,9 +619,33 @@ class IncomeRecordViewSet(viewsets.ModelViewSet):
 
 
 class ProfitabilityViewSet(viewsets.ModelViewSet):
-    """API endpoint for Profitability"""
+    """
+    API endpoint for Profitability records.
+    """
     queryset = Profitability.objects.all()
     serializer_class = ProfitabilitySerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['year', 'month']
     ordering_fields = ['year', 'month']
+
+
+@login_required
+def export_profitability(request):
+    """
+    Exports all profitability records to CSV.
+    """
+    records = Profitability.objects.all().order_by('-year', '-month')
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ['Year', 'Month', 'Total Income', 'Direct Costs', 'Indirect Costs', 'Gross Profit', 'Net Profit', 'ROI (%)',
+         'Cash Surplus'])
+    for r in records:
+        writer.writerow([
+            r.year, r.month, r.total_income, r.direct_costs, r.indirect_costs,
+            r.gross_profit, r.net_profit, r.roi, r.cash_surplus
+        ])
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="profitability_{date.today().isoformat()}.csv"'
+    return response
